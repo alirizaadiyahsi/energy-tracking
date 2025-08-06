@@ -35,7 +35,7 @@
 ### 1. **Start the Platform**
 ```bash
 # Clone and navigate to project
-cd c:\Users\aliriza\Documents\Projects\GitHub\enery-tracking
+cd c:\Users\aliriza\Documents\Projects\GitHub\energy-tracking
 
 # Start all services
 docker-compose up -d

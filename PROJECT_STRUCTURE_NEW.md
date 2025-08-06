@@ -3,7 +3,7 @@
 ## 📁 Complete Directory Structure
 
 ```
-enery-tracking/
+energy-tracking/
 ├── 📁 services/                          # Backend Microservices
 │   ├── 📁 api-gateway/                   # Central API Gateway (Port 8000)
 │   │   ├── 📁 api/

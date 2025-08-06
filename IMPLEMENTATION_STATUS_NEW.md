@@ -207,7 +207,7 @@ To start the complete system:
 ```bash
 # Clone and start
 git clone <repository-url>
-cd enery-tracking
+cd energy-tracking
 docker-compose up -d
 
 # Access points
