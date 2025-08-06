@@ -215,6 +215,21 @@ test: ## Run all tests
 	@$(DOCKER_COMPOSE_DEV) exec analytics python -m pytest tests/ -v
 	@echo "$(GREEN)All tests completed!$(NC)"
 
+test-unit: ## Run unit tests only
+	@echo "$(BLUE)Running unit tests...$(NC)"
+	@python -m pytest tests/unit/ -v -m unit
+	@echo "$(GREEN)Unit tests completed!$(NC)"
+
+test-integration: ## Run integration tests (requires services running)
+	@echo "$(BLUE)Running integration tests...$(NC)"
+	@python -m pytest tests/integration/ -v -m integration
+	@echo "$(GREEN)Integration tests completed!$(NC)"
+
+test-e2e: ## Run end-to-end tests
+	@echo "$(BLUE)Running end-to-end tests...$(NC)"
+	@python -m pytest tests/integration/ -v -m e2e
+	@echo "$(GREEN)End-to-end tests completed!$(NC)"
+
 test-service: ## Run tests for specific service (usage: make test-service SERVICE=api-gateway)
 	@echo "$(BLUE)Running tests for $(SERVICE)...$(NC)"
 	@$(DOCKER_COMPOSE_DEV) exec $(SERVICE) python -m pytest tests/ -v
@@ -222,8 +237,72 @@ test-service: ## Run tests for specific service (usage: make test-service SERVIC
 
 test-coverage: ## Run tests with coverage report
 	@echo "$(BLUE)Running tests with coverage...$(NC)"
-	@$(DOCKER_COMPOSE_DEV) exec api-gateway python -m pytest tests/ --cov=app --cov-report=html
+	@python -m pytest tests/ --cov=services --cov-report=html --cov-report=term --cov-fail-under=80
 	@echo "$(GREEN)Coverage report generated in htmlcov/$(NC)"
+
+test-frontend: ## Run frontend tests
+	@echo "$(BLUE)Running frontend tests...$(NC)"
+	@cd frontend && npm test -- --run
+	@echo "$(GREEN)Frontend tests completed!$(NC)"
+
+test-frontend-coverage: ## Run frontend tests with coverage
+	@echo "$(BLUE)Running frontend tests with coverage...$(NC)"
+	@cd frontend && npm run test:coverage
+	@echo "$(GREEN)Frontend coverage report generated!$(NC)"
+
+test-performance: ## Run performance tests with Locust
+	@echo "$(BLUE)Running performance tests...$(NC)"
+	@pip install locust
+	@locust -f tests/performance/locustfile.py --host=http://localhost:8000 --headless -u 10 -r 2 -t 60s
+	@echo "$(GREEN)Performance tests completed!$(NC)"
+
+test-security: ## Run security tests
+	@echo "$(BLUE)Running security tests...$(NC)"
+	@pip install bandit safety
+	@bandit -r services/
+	@safety check
+	@python -m pytest tests/security/ -v
+	@echo "$(GREEN)Security tests completed!$(NC)"
+
+test-install-deps: ## Install test dependencies
+	@echo "$(BLUE)Installing test dependencies...$(NC)"
+	@pip install -r test-requirements.txt
+	@echo "$(GREEN)Test dependencies installed!$(NC)"
+
+test-all: test-install-deps test-unit test-integration test-frontend ## Run all test suites
+	@echo "$(GREEN)All test suites completed successfully!$(NC)"
+
+# Performance testing
+test-performance: ## Run performance tests
+	@echo "$(BLUE)Running performance tests...$(NC)"
+	@python tests/performance/run_performance_tests.py --scenario smoke --start-services --cleanup
+	@echo "$(GREEN)Performance tests completed!$(NC)"
+
+test-performance-all: ## Run all performance test scenarios
+	@echo "$(BLUE)Running all performance test scenarios...$(NC)"
+	@python tests/performance/run_performance_tests.py --scenario all --start-services --cleanup
+	@echo "$(GREEN)All performance tests completed!$(NC)"
+
+test-performance-stress: ## Run stress performance tests
+	@echo "$(BLUE)Running stress performance tests...$(NC)"
+	@python tests/performance/run_performance_tests.py --scenario stress --start-services --cleanup
+	@echo "$(GREEN)Stress performance tests completed!$(NC)"
+
+test-performance-endurance: ## Run endurance performance tests
+	@echo "$(BLUE)Running endurance performance tests...$(NC)"
+	@python tests/performance/run_performance_tests.py --scenario endurance --start-services --cleanup
+	@echo "$(GREEN)Endurance performance tests completed!$(NC)"
+
+# Health checks for testing
+test-health: ## Check if all services are healthy for testing
+	@echo "$(BLUE)Checking service health...$(NC)"
+	@curl -f http://localhost:8000/health || echo "$(RED)API Gateway unhealthy$(NC)"
+	@curl -f http://localhost:8005/health || echo "$(RED)Auth Service unhealthy$(NC)"
+	@curl -f http://localhost:8001/health || echo "$(RED)Data Ingestion unhealthy$(NC)"
+	@curl -f http://localhost:8002/health || echo "$(RED)Data Processing unhealthy$(NC)"
+	@curl -f http://localhost:8003/health || echo "$(RED)Analytics unhealthy$(NC)"
+	@curl -f http://localhost:8004/health || echo "$(RED)Notification unhealthy$(NC)"
+	@echo "$(GREEN)Health check completed!$(NC)"
 
 # ==============================================================================
 # CODE QUALITY

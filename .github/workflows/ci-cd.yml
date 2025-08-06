@@ -1,0 +1,485 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: energy_tracking_test
+  REDIS_URL: redis://localhost:6379/0
+  INFLUXDB_URL: http://localhost:8086
+  INFLUXDB_TOKEN: test-token
+  INFLUXDB_ORG: energy-tracking
+  INFLUXDB_BUCKET: energy-data-test
+
+jobs:
+  # ==============================================================================
+  # LINT AND FORMAT
+  # ==============================================================================
+  lint:
+    runs-on: ubuntu-latest
+    name: 🧹 Lint & Format
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black isort flake8 mypy bandit
+          pip install -r test-requirements.txt
+          
+      - name: Run Black (formatting)
+        run: black --check --diff .
+        
+      - name: Run isort (import sorting)
+        run: isort --check-only --diff .
+        
+      - name: Run flake8 (linting)
+        run: flake8 services/ tests/
+        
+      - name: Run mypy (type checking)
+        run: mypy services/ --ignore-missing-imports
+        
+      - name: Run Bandit (security)
+        run: bandit -r services/ -f json -o bandit-report.json || true
+        
+      - name: Upload Bandit results
+        uses: actions/upload-artifact@v3
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+  # ==============================================================================
+  # UNIT TESTS
+  # ==============================================================================
+  unit-tests:
+    runs-on: ubuntu-latest
+    name: 🧪 Unit Tests
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r test-requirements.txt
+          
+      - name: Run unit tests
+        run: |
+          python -m pytest tests/unit/ -v -m unit \
+            --junitxml=junit/test-results-unit.xml \
+            --cov=services \
+            --cov-report=xml \
+            --cov-report=html
+            
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: unit-test-results
+          path: junit/test-results-unit.xml
+          
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-unit
+
+  # ==============================================================================
+  # INTEGRATION TESTS
+  # ==============================================================================
+  integration-tests:
+    runs-on: ubuntu-latest
+    name: 🔗 Integration Tests
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: energy_tracking_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+          
+      influxdb:
+        image: influxdb:2.7
+        env:
+          DOCKER_INFLUXDB_INIT_MODE: setup
+          DOCKER_INFLUXDB_INIT_USERNAME: admin
+          DOCKER_INFLUXDB_INIT_PASSWORD: password123
+          DOCKER_INFLUXDB_INIT_ORG: energy-tracking
+          DOCKER_INFLUXDB_INIT_BUCKET: energy-data-test
+          DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: test-token
+        ports:
+          - 8086:8086
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r test-requirements.txt
+          
+      - name: Wait for services
+        run: |
+          sleep 30
+          
+      - name: Initialize databases
+        run: |
+          # PostgreSQL setup
+          PGPASSWORD=postgres psql -h localhost -U postgres -d energy_tracking_test -f scripts/init-db.sql
+          PGPASSWORD=postgres psql -h localhost -U postgres -d energy_tracking_test -f scripts/rbac-migration.sql
+          
+      - name: Start application services
+        run: |
+          # Start services in background for testing
+          cd services/api-gateway && python main.py &
+          cd services/auth-service && python main.py &
+          cd services/data-ingestion && python main.py &
+          sleep 10
+          
+      - name: Run integration tests
+        run: |
+          python -m pytest tests/integration/ -v -m integration \
+            --junitxml=junit/test-results-integration.xml
+            
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: integration-test-results
+          path: junit/test-results-integration.xml
+
+  # ==============================================================================
+  # FRONTEND TESTS
+  # ==============================================================================
+  frontend-tests:
+    runs-on: ubuntu-latest
+    name: ⚛️ Frontend Tests
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+          
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+          
+      - name: Run frontend linting
+        run: |
+          cd frontend
+          npm run lint
+          
+      - name: Run frontend tests
+        run: |
+          cd frontend
+          npm run test:coverage
+          
+      - name: Upload frontend coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./frontend/coverage/lcov.info
+          flags: frontend
+          name: codecov-frontend
+
+  # ==============================================================================
+  # SECURITY TESTS
+  # ==============================================================================
+  security-tests:
+    runs-on: ubuntu-latest
+    name: 🔒 Security Tests
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety semgrep
+          
+      - name: Run Bandit (Python security)
+        run: |
+          bandit -r services/ -f json -o bandit-report.json
+        continue-on-error: true
+        
+      - name: Run Safety (dependency vulnerabilities)
+        run: |
+          safety check --json --output safety-report.json
+        continue-on-error: true
+        
+      - name: Run Semgrep (code security)
+        run: |
+          semgrep --config=auto services/ --json --output=semgrep-report.json
+        continue-on-error: true
+        
+      - name: Upload security reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            safety-report.json
+            semgrep-report.json
+
+  # ==============================================================================
+  # DOCKER BUILD
+  # ==============================================================================
+  docker-build:
+    runs-on: ubuntu-latest
+    name: 🐳 Docker Build
+    needs: [lint, unit-tests]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Build API Gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: services/api-gateway
+          push: false
+          tags: energy-tracking/api-gateway:latest
+          
+      - name: Build Auth Service
+        uses: docker/build-push-action@v5
+        with:
+          context: services/auth-service
+          push: false
+          tags: energy-tracking/auth-service:latest
+          
+      - name: Build Data Ingestion
+        uses: docker/build-push-action@v5
+        with:
+          context: services/data-ingestion
+          push: false
+          tags: energy-tracking/data-ingestion:latest
+          
+      - name: Build Data Processing
+        uses: docker/build-push-action@v5
+        with:
+          context: services/data-processing
+          push: false
+          tags: energy-tracking/data-processing:latest
+          
+      - name: Build Analytics Service
+        uses: docker/build-push-action@v5
+        with:
+          context: services/analytics
+          push: false
+          tags: energy-tracking/analytics:latest
+          
+      - name: Build Notification Service
+        uses: docker/build-push-action@v5
+        with:
+          context: services/notification
+          push: false
+          tags: energy-tracking/notification:latest
+          
+      - name: Build Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: frontend
+          push: false
+          tags: energy-tracking/frontend:latest
+
+  # ==============================================================================
+  # END-TO-END TESTS
+  # ==============================================================================
+  e2e-tests:
+    runs-on: ubuntu-latest
+    name: 🎯 E2E Tests
+    needs: [unit-tests, integration-tests, frontend-tests]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Docker Compose
+        run: |
+          docker-compose -f docker-compose.test.yml up -d
+          
+      - name: Wait for services
+        run: |
+          sleep 60
+          
+      - name: Check service health
+        run: |
+          curl -f http://localhost:8000/health
+          curl -f http://localhost:8005/health
+          
+      - name: Set up Python for E2E tests
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install E2E dependencies
+        run: |
+          pip install -r test-requirements.txt
+          
+      - name: Run E2E tests
+        run: |
+          python -m pytest tests/integration/ -v -m e2e \
+            --junitxml=junit/test-results-e2e.xml
+            
+      - name: Upload E2E results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: e2e-test-results
+          path: junit/test-results-e2e.xml
+          
+      - name: Cleanup
+        if: always()
+        run: |
+          docker-compose -f docker-compose.test.yml down
+
+  # ==============================================================================
+  # PERFORMANCE TESTS
+  # ==============================================================================
+  performance-tests:
+    runs-on: ubuntu-latest
+    name: ⚡ Performance Tests
+    needs: [integration-tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install Locust
+        run: |
+          pip install locust
+          
+      - name: Start services for load testing
+        run: |
+          docker-compose up -d
+          sleep 60
+          
+      - name: Run performance tests
+        run: |
+          cd tests/performance
+          locust -f locustfile.py --headless -u 50 -r 10 -t 5m --host=http://localhost:8000 \
+            --html=performance-report.html
+            
+      - name: Upload performance report
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-report
+          path: tests/performance/performance-report.html
+          
+      - name: Cleanup
+        if: always()
+        run: |
+          docker-compose down
+
+  # ==============================================================================
+  # DEPLOYMENT
+  # ==============================================================================
+  deploy:
+    runs-on: ubuntu-latest
+    name: 🚀 Deploy
+    needs: [lint, unit-tests, integration-tests, frontend-tests, security-tests, docker-build, e2e-tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Deploy to staging
+        run: |
+          echo "🚀 Deploying to staging environment..."
+          # Add your deployment steps here
+          # This could involve:
+          # - Pushing images to container registry
+          # - Updating Kubernetes manifests
+          # - Running deployment scripts
+          # - Notifying team via Slack/email
+          
+      - name: Run smoke tests
+        run: |
+          echo "🔍 Running smoke tests on staging..."
+          # Add smoke tests for staging environment
+          
+      - name: Notify deployment
+        if: always()
+        run: |
+          echo "📢 Deployment completed!"
+          # Add notification logic (Slack, email, etc.)
+
+  # ==============================================================================
+  # CLEANUP
+  # ==============================================================================
+  cleanup:
+    runs-on: ubuntu-latest
+    name: 🧹 Cleanup
+    needs: [deploy]
+    if: always()
+    
+    steps:
+      - name: Clean up artifacts
+        run: |
+          echo "🧹 Cleaning up temporary resources..."
+          # Add cleanup logic if needed
