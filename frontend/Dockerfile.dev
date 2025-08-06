@@ -1,11 +1,13 @@
-# Development Dockerfile for React Frontend
+# Development Dockerfile
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Install dependencies
+# Copy package files
 COPY package*.json ./
-RUN npm install
+
+# Install dependencies
+RUN npm ci
 
 # Copy source code
 COPY . .
@@ -13,11 +15,5 @@ COPY . .
 # Expose port
 EXPOSE 3000
 
-# Set environment for development
-ENV REACT_APP_API_URL=http://localhost:8000
-ENV REACT_APP_AUTH_URL=http://localhost:8005
-ENV REACT_APP_WS_URL=ws://localhost:8000/ws
-ENV REACT_APP_ENV=development
-
 # Start development server
-CMD ["npm", "start"]
+CMD ["npm", "run", "dev"]
