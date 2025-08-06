@@ -98,17 +98,17 @@ def generate_energy_report(self, report_type, device_ids=None, start_date=None, 
     try:
         logger.info(f"Generating {report_type} energy report")
         
-        # Placeholder for report generation logic
+        # Example report generation logic
         report_data = {
             "report_type": report_type,
             "device_ids": device_ids,
             "start_date": start_date,
             "end_date": end_date,
             "generated_at": datetime.utcnow().isoformat(),
-            "status": "completed"
+            "status": "completed",
+            "summary": f"Report for {len(device_ids) if device_ids else 'all'} devices from {start_date} to {end_date}"
         }
-        
-        logger.info(f"Energy report generation completed: {report_type}")
+        logger.info(f"Report generated: {report_data}")
         return report_data
         
     except Exception as e:
