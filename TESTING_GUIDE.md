@@ -573,4 +573,87 @@ services:
       REDIS_URL: redis://test-redis:6379/0
 ```
 
-This comprehensive testing strategy ensures reliability, performance, and security across the entire Energy Tracking System.
+## 🆕 Additional Testing Best Practices & Tips
+
+### Test Data Factories Example (Python)
+We recommend using `factory_boy` for generating test data:
+```python
+# tests/factories/user_factory.py
+import factory
+from services.auth_service.models import User
+
+class UserFactory(factory.Factory):
+    class Meta:
+        model = User
+    email = factory.Faker('email')
+    password = factory.Faker('password')
+    role = 'user'
+```
+Use in tests:
+```python
+user = UserFactory()
+```
+
+### Pytest Markers & Selective Test Runs
+Define custom markers in `pytest.ini`:
+```ini
+[pytest]
+markers =
+    unit: Unit tests
+    integration: Integration tests
+    e2e: End-to-end tests
+    performance: Performance tests
+    security: Security tests
+```
+Use markers in tests:
+```python
+@pytest.mark.integration
+def test_something(): ...
+```
+Run only integration tests:
+```bash
+pytest -m integration
+```
+
+### Accessibility & Visual Regression Testing (Frontend)
+- **Accessibility**: Use [axe-core](https://www.deque.com/axe/) or [jest-axe](https://github.com/nickcolley/jest-axe) for automated a11y checks.
+- **Visual Regression**: Use [Storybook](https://storybook.js.org/) with [Chromatic](https://www.chromatic.com/) or [Percy](https://percy.io/) for UI snapshot testing.
+
+### Example Test Case (Filled)
+```markdown
+## Test Case: User Registration - Success
+**Objective**: Ensure a new user can register successfully
+**Preconditions**: No user exists with the test email
+**Test Steps**:
+1. Send POST /auth/register with valid data
+2. Check response status is 201
+3. Verify user exists in database
+**Expected Results**: User is created and response contains user info
+**Test Data**: email: test@example.com, password: Test123!
+**Priority**: High
+```
+
+### Flaky Test Handling
+- Use `@pytest.mark.flaky(reruns=2)` to auto-rerun flaky tests.
+- Investigate and fix root causes; avoid ignoring flaky tests long-term.
+
+### Test Review & Ownership
+- All new/changed tests should be reviewed in PRs.
+- Each service/module should have a test owner (see CODEOWNERS).
+- Regularly review and refactor tests for reliability and clarity.
+
+### Frontend E2E Testing
+- For full user journey tests, consider [Cypress](https://www.cypress.io/) or [Playwright](https://playwright.dev/).
+- Example Cypress test:
+```js
+// frontend/cypress/e2e/register.cy.js
+describe('User Registration', () => {
+  it('registers a new user', () => {
+    cy.visit('/register')
+    cy.get('input[name=email]').type('test@example.com')
+    cy.get('input[name=password]').type('Test123!')
+    cy.get('button[type=submit]').click()
+    cy.contains('Welcome')
+  })
+})
+```
