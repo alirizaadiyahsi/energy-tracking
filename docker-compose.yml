@@ -1,0 +1,406 @@
+version: '3.8'
+
+services:
+  # Database Services
+  postgres:
+    image: postgres:15-alpine
+    container_name: energy-postgres
+    environment:
+      POSTGRES_DB: energy_tracking
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - energy-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: energy-influxdb
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: admin123456
+      DOCKER_INFLUXDB_INIT_ORG: energy-org
+      DOCKER_INFLUXDB_INIT_BUCKET: iot-data
+      DOCKER_INFLUXDB_INIT_RETENTION: 52w
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: energy-token-12345678901234567890
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
+    networks:
+      - energy-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: energy-redis
+    command: redis-server --appendonly yes --requirepass redis123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - energy-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Message Broker
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: energy-mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./infrastructure/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./infrastructure/mosquitto/passwd:/mosquitto/config/passwd:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_logs:/mosquitto/log
+    networks:
+      - energy-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mosquitto_pub", "-h", "localhost", "-t", "test", "-m", "test"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Backend Services
+  api-gateway:
+    build: 
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: energy-api-gateway
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
+      - REDIS_URL=redis://:redis123@redis:6379/0
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=energy-token-12345678901234567890
+      - INFLUXDB_ORG=energy-org
+      - INFLUXDB_BUCKET=iot-data
+      - SECRET_KEY=your-secret-key-change-in-production
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+      - LOG_LEVEL=INFO
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+    volumes:
+      - ./services/api-gateway:/app
+      - /app/venv
+    networks:
+      - energy-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  data-ingestion:
+    build: 
+      context: ./services/data-ingestion
+      dockerfile: Dockerfile
+    container_name: energy-data-ingestion
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
+      - REDIS_URL=redis://:redis123@redis:6379/1
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=energy-token-12345678901234567890
+      - INFLUXDB_ORG=energy-org
+      - INFLUXDB_BUCKET=iot-data
+      - MQTT_BROKER=mosquitto
+      - MQTT_PORT=1883
+      - MQTT_USERNAME=iot_user
+      - MQTT_PASSWORD=iot123
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+    volumes:
+      - ./services/data-ingestion:/app
+      - /app/venv
+    networks:
+      - energy-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  data-processing:
+    build: 
+      context: ./services/data-processing
+      dockerfile: Dockerfile
+    container_name: energy-data-processing
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
+      - REDIS_URL=redis://:redis123@redis:6379/2
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=energy-token-12345678901234567890
+      - INFLUXDB_ORG=energy-org
+      - INFLUXDB_BUCKET=iot-data
+      - CELERY_BROKER_URL=redis://:redis123@redis:6379/3
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+    volumes:
+      - ./services/data-processing:/app
+      - /app/venv
+    networks:
+      - energy-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8002/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  analytics:
+    build: 
+      context: ./services/analytics
+      dockerfile: Dockerfile
+    container_name: energy-analytics
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
+      - REDIS_URL=redis://:redis123@redis:6379/4
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=energy-token-12345678901234567890
+      - INFLUXDB_ORG=energy-org
+      - INFLUXDB_BUCKET=iot-data
+      - CELERY_BROKER_URL=redis://:redis123@redis:6379/5
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+    volumes:
+      - ./services/analytics:/app
+      - /app/venv
+    networks:
+      - energy-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8003/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  notification:
+    build: 
+      context: ./services/notification
+      dockerfile: Dockerfile
+    container_name: energy-notification
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
+      - REDIS_URL=redis://:redis123@redis:6379/6
+      - CELERY_BROKER_URL=redis://:redis123@redis:6379/7
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/notification:/app
+      - /app/venv
+    networks:
+      - energy-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8004/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Worker Services
+  celery-worker:
+    build: 
+      context: ./services/data-processing
+      dockerfile: Dockerfile
+    container_name: energy-celery-worker
+    command: celery -A app.celery worker --loglevel=info --concurrency=4
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
+      - REDIS_URL=redis://:redis123@redis:6379/2
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=energy-token-12345678901234567890
+      - INFLUXDB_ORG=energy-org
+      - INFLUXDB_BUCKET=iot-data
+      - CELERY_BROKER_URL=redis://:redis123@redis:6379/3
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+    volumes:
+      - ./services/data-processing:/app
+      - /app/venv
+    networks:
+      - energy-network
+    restart: unless-stopped
+
+  celery-beat:
+    build: 
+      context: ./services/data-processing
+      dockerfile: Dockerfile
+    container_name: energy-celery-beat
+    command: celery -A app.celery beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
+      - REDIS_URL=redis://:redis123@redis:6379/2
+      - CELERY_BROKER_URL=redis://:redis123@redis:6379/3
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/data-processing:/app
+      - /app/venv
+    networks:
+      - energy-network
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: energy-frontend
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_WS_URL=ws://localhost:8000/ws
+      - REACT_APP_ENV=development
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - energy-network
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  # Monitoring & Visualization
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: energy-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - energy-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Reverse Proxy
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: energy-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - api-gateway
+      - frontend
+      - grafana
+    networks:
+      - energy-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local
+  influxdb_data:
+    driver: local
+  influxdb_config:
+    driver: local
+  redis_data:
+    driver: local
+  mosquitto_data:
+    driver: local
+  mosquitto_logs:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  energy-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
