@@ -1,5 +1,5 @@
 import api from './api';
-import { Device, EnergyReading, DashboardData, ApiResponse, PaginatedResponse } from '../types';
+import { Device, EnergyReading, ApiResponse } from '../types';
 
 class DeviceService {
   async getDevices(): Promise<Device[]> {
