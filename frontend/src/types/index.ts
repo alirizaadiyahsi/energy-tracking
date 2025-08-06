@@ -96,3 +96,148 @@ export interface ChartDataPoint {
   value: number;
   label?: string;
 }
+
+// Processing types (for data-processing service)
+export interface ProcessingJob {
+  id: number;
+  jobType: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  parameters?: Record<string, any>;
+  result?: Record<string, any>;
+  errorMessage?: string;
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  createdBy?: string;
+}
+
+export interface AnomalyResult {
+  isAnomaly: boolean;
+  score: number;
+  threshold: number;
+  message?: string;
+}
+
+// Analytics types
+export interface EnergyMetrics {
+  id: number;
+  deviceId: string;
+  metricType: string;
+  periodStart: string;
+  periodEnd: string;
+  totalEnergy: number;
+  avgPower: number;
+  maxPower: number;
+  minPower: number;
+  energyCost: number;
+  efficiencyScore?: number;
+  anomalyDetected: boolean;
+  anomalyScore?: number;
+  dataPointsCount: number;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AnalyticsData {
+  totalConsumption: number;
+  avgDailyConsumption: number;
+  peakDemand: number;
+  efficiencyScore: number;
+  costSavings: number;
+  anomaliesDetected: number;
+}
+
+export interface ConsumptionTrend {
+  date: string;
+  consumption: number;
+  cost?: number;
+  deviceId?: string;
+}
+
+export interface EfficiencyReport {
+  deviceId: string;
+  deviceName: string;
+  currentEfficiency: number;
+  targetEfficiency: number;
+  improvementPotential: number;
+  recommendations: string[];
+}
+
+// Notification types
+export interface Notification {
+  id: string;
+  recipient: string;
+  subject: string;
+  message: string;
+  type: string;
+  status: 'pending' | 'sent' | 'failed';
+  createdAt: string;
+  sentAt?: string;
+}
+
+export interface NotificationTemplate {
+  id: string;
+  name: string;
+  description: string;
+  subject: string;
+  body: string;
+}
+
+export interface NotificationRequest {
+  recipient: string;
+  subject: string;
+  message: string;
+  type?: string;
+  templateId?: string;
+  templateData?: Record<string, any>;
+}
+
+export interface AlertRequest {
+  recipients: string[];
+  subject: string;
+  message: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  deviceId?: string;
+}
+
+// Form validation types
+export interface FormErrors {
+  [key: string]: string | string[] | undefined;
+}
+
+// Utility types
+export type Status = 'idle' | 'loading' | 'success' | 'error';
+
+export interface LoadingState {
+  [key: string]: boolean;
+}
+
+export interface ErrorState {
+  [key: string]: string | null;
+}
+
+// Component prop types
+export interface TableColumn {
+  key: string;
+  title: string;
+  sortable?: boolean;
+  render?: (value: any, record: any) => any;
+}
+
+export interface FilterOption {
+  label: string;
+  value: string | number;
+}
+
+// WebSocket types
+export interface WebSocketMessage {
+  type: string;
+  data: any;
+  timestamp: string;
+}
+
+export interface RealTimeUpdate {
+  deviceId: string;
+  data: EnergyReading;
+  timestamp: string;
+}

@@ -318,6 +318,42 @@ services:
       timeout: 10s
       retries: 3
 
+  notification-worker:
+    build: 
+      context: ./services/notification
+      dockerfile: Dockerfile
+    container_name: energy-notification-worker
+    command: python worker.py
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis123
+      - REDIS_DB_CELERY=8
+      - AUTH_SERVICE_URL=http://auth-service:8005
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_USE_TLS=true
+      - FROM_EMAIL=${FROM_EMAIL:-noreply@energytracking.com}
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      notification:
+        condition: service_healthy
+    volumes:
+      - ./services/notification:/app
+      - /app/venv
+    networks:
+      - energy-network
+    restart: unless-stopped
+
   # Worker Services
   celery-worker:
     build: 
