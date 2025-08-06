@@ -82,6 +82,49 @@ services:
     restart: unless-stopped
 
   # Backend Services (Development mode with hot reload)
+  auth-service:
+    build: 
+      context: ./services/auth-service
+      dockerfile: Dockerfile.dev
+    container_name: energy-auth-service-dev
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking_dev
+      - REDIS_URL=redis://:redis123@redis:6379/0
+      - SECRET_KEY=dev-secret-key-not-for-production
+      - JWT_SECRET_KEY=dev-jwt-secret-key-not-for-production
+      - JWT_ALGORITHM=HS256
+      - JWT_EXPIRE_MINUTES=60
+      - JWT_REFRESH_EXPIRE_DAYS=30
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:8000
+      - LOG_LEVEL=DEBUG
+      - ENVIRONMENT=development
+      - RELOAD=true
+      - BCRYPT_ROUNDS=4
+      - SESSION_TIMEOUT_HOURS=48
+      - MAX_LOGIN_ATTEMPTS=10
+      - LOCKOUT_DURATION_MINUTES=5
+      - EMAIL_VERIFICATION_REQUIRED=false
+    ports:
+      - "8005:8005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/auth-service:/app
+      - auth_service_cache:/app/.cache
+    networks:
+      - energy-dev-network
+    restart: unless-stopped
+    develop:
+      watch:
+        - action: sync
+          path: ./services/auth-service
+          target: /app
+        - action: rebuild
+          path: ./services/auth-service/requirements.txt
+
   api-gateway:
     build: 
       context: ./services/api-gateway
@@ -89,12 +132,14 @@ services:
     container_name: energy-api-gateway-dev
     environment:
       - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking_dev
-      - REDIS_URL=redis://:redis123@redis:6379/0
+      - REDIS_URL=redis://:redis123@redis:6379/1
       - INFLUXDB_URL=http://influxdb:8086
       - INFLUXDB_TOKEN=energy-token-dev-12345678901234567890
       - INFLUXDB_ORG=energy-org
       - INFLUXDB_BUCKET=iot-data-dev
+      - AUTH_SERVICE_URL=http://auth-service:8005
       - SECRET_KEY=dev-secret-key-not-for-production
+      - JWT_SECRET_KEY=dev-jwt-secret-key-not-for-production
       - CORS_ORIGINS=http://localhost:3000,http://localhost:3001
       - LOG_LEVEL=DEBUG
       - ENVIRONMENT=development
@@ -108,6 +153,8 @@ services:
         condition: service_healthy
       influxdb:
         condition: service_healthy
+      auth-service:
+        condition: service_started
     volumes:
       - ./services/api-gateway:/app
       - api_gateway_cache:/app/.cache
@@ -129,11 +176,12 @@ services:
     container_name: energy-data-ingestion-dev
     environment:
       - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking_dev
-      - REDIS_URL=redis://:redis123@redis:6379/1
+      - REDIS_URL=redis://:redis123@redis:6379/2
       - INFLUXDB_URL=http://influxdb:8086
       - INFLUXDB_TOKEN=energy-token-dev-12345678901234567890
       - INFLUXDB_ORG=energy-org
       - INFLUXDB_BUCKET=iot-data-dev
+      - AUTH_SERVICE_URL=http://auth-service:8005
       - MQTT_BROKER=mosquitto
       - MQTT_PORT=1883
       - LOG_LEVEL=DEBUG
@@ -149,6 +197,8 @@ services:
       influxdb:
         condition: service_healthy
       mosquitto:
+        condition: service_started
+      auth-service:
         condition: service_started
     volumes:
       - ./services/data-ingestion:/app
@@ -172,6 +222,7 @@ services:
     container_name: energy-frontend-dev
     environment:
       - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_AUTH_URL=http://localhost:8005
       - REACT_APP_WS_URL=ws://localhost:8000/ws
       - REACT_APP_ENV=development
       - WATCHPACK_POLLING=true
@@ -295,6 +346,8 @@ volumes:
   grafana_dev_data:
     driver: local
   pgadmin_dev_data:
+    driver: local
+  auth_service_cache:
     driver: local
   api_gateway_cache:
     driver: local

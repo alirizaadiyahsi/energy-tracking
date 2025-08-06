@@ -88,6 +88,49 @@ services:
       retries: 3
 
   # Backend Services
+  auth-service:
+    build: 
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: energy-auth-service
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
+      - REDIS_URL=redis://:redis123@redis:6379/0
+      - SECRET_KEY=your-secret-key-change-in-production
+      - JWT_SECRET_KEY=your-jwt-secret-key-change-in-production
+      - JWT_ALGORITHM=HS256
+      - JWT_EXPIRE_MINUTES=30
+      - JWT_REFRESH_EXPIRE_DAYS=7
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:8000
+      - LOG_LEVEL=INFO
+      - BCRYPT_ROUNDS=12
+      - SESSION_TIMEOUT_HOURS=24
+      - MAX_LOGIN_ATTEMPTS=5
+      - LOCKOUT_DURATION_MINUTES=15
+      - EMAIL_VERIFICATION_REQUIRED=false
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+    ports:
+      - "8005:8005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/auth-service:/app
+      - /app/venv
+    networks:
+      - energy-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   api-gateway:
     build: 
       context: ./services/api-gateway
@@ -95,12 +138,14 @@ services:
     container_name: energy-api-gateway
     environment:
       - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
-      - REDIS_URL=redis://:redis123@redis:6379/0
+      - REDIS_URL=redis://:redis123@redis:6379/1
       - INFLUXDB_URL=http://influxdb:8086
       - INFLUXDB_TOKEN=energy-token-12345678901234567890
       - INFLUXDB_ORG=energy-org
       - INFLUXDB_BUCKET=iot-data
+      - AUTH_SERVICE_URL=http://auth-service:8005
       - SECRET_KEY=your-secret-key-change-in-production
+      - JWT_SECRET_KEY=your-jwt-secret-key-change-in-production
       - CORS_ORIGINS=http://localhost:3000,http://localhost:3001
       - LOG_LEVEL=INFO
     ports:
@@ -111,6 +156,8 @@ services:
       redis:
         condition: service_healthy
       influxdb:
+        condition: service_healthy
+      auth-service:
         condition: service_healthy
     volumes:
       - ./services/api-gateway:/app
@@ -131,11 +178,12 @@ services:
     container_name: energy-data-ingestion
     environment:
       - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
-      - REDIS_URL=redis://:redis123@redis:6379/1
+      - REDIS_URL=redis://:redis123@redis:6379/2
       - INFLUXDB_URL=http://influxdb:8086
       - INFLUXDB_TOKEN=energy-token-12345678901234567890
       - INFLUXDB_ORG=energy-org
       - INFLUXDB_BUCKET=iot-data
+      - AUTH_SERVICE_URL=http://auth-service:8005
       - MQTT_BROKER=mosquitto
       - MQTT_PORT=1883
       - MQTT_USERNAME=iot_user
@@ -149,6 +197,8 @@ services:
       influxdb:
         condition: service_healthy
       mosquitto:
+        condition: service_healthy
+      auth-service:
         condition: service_healthy
     volumes:
       - ./services/data-ingestion:/app
@@ -169,12 +219,13 @@ services:
     container_name: energy-data-processing
     environment:
       - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
-      - REDIS_URL=redis://:redis123@redis:6379/2
+      - REDIS_URL=redis://:redis123@redis:6379/3
       - INFLUXDB_URL=http://influxdb:8086
       - INFLUXDB_TOKEN=energy-token-12345678901234567890
       - INFLUXDB_ORG=energy-org
       - INFLUXDB_BUCKET=iot-data
-      - CELERY_BROKER_URL=redis://:redis123@redis:6379/3
+      - AUTH_SERVICE_URL=http://auth-service:8005
+      - CELERY_BROKER_URL=redis://:redis123@redis:6379/4
       - LOG_LEVEL=INFO
     depends_on:
       postgres:
@@ -182,6 +233,8 @@ services:
       redis:
         condition: service_healthy
       influxdb:
+        condition: service_healthy
+      auth-service:
         condition: service_healthy
     volumes:
       - ./services/data-processing:/app
@@ -202,12 +255,13 @@ services:
     container_name: energy-analytics
     environment:
       - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
-      - REDIS_URL=redis://:redis123@redis:6379/4
+      - REDIS_URL=redis://:redis123@redis:6379/5
       - INFLUXDB_URL=http://influxdb:8086
       - INFLUXDB_TOKEN=energy-token-12345678901234567890
       - INFLUXDB_ORG=energy-org
       - INFLUXDB_BUCKET=iot-data
-      - CELERY_BROKER_URL=redis://:redis123@redis:6379/5
+      - AUTH_SERVICE_URL=http://auth-service:8005
+      - CELERY_BROKER_URL=redis://:redis123@redis:6379/6
       - LOG_LEVEL=INFO
     depends_on:
       postgres:
@@ -215,6 +269,8 @@ services:
       redis:
         condition: service_healthy
       influxdb:
+        condition: service_healthy
+      auth-service:
         condition: service_healthy
     volumes:
       - ./services/analytics:/app
@@ -235,8 +291,9 @@ services:
     container_name: energy-notification
     environment:
       - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
-      - REDIS_URL=redis://:redis123@redis:6379/6
-      - CELERY_BROKER_URL=redis://:redis123@redis:6379/7
+      - REDIS_URL=redis://:redis123@redis:6379/7
+      - AUTH_SERVICE_URL=http://auth-service:8005
+      - CELERY_BROKER_URL=redis://:redis123@redis:6379/8
       - SMTP_HOST=smtp.gmail.com
       - SMTP_PORT=587
       - SMTP_USERNAME=${SMTP_USERNAME:-}
@@ -246,6 +303,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      auth-service:
         condition: service_healthy
     volumes:
       - ./services/notification:/app
@@ -268,12 +327,13 @@ services:
     command: celery -A app.celery worker --loglevel=info --concurrency=4
     environment:
       - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
-      - REDIS_URL=redis://:redis123@redis:6379/2
+      - REDIS_URL=redis://:redis123@redis:6379/3
       - INFLUXDB_URL=http://influxdb:8086
       - INFLUXDB_TOKEN=energy-token-12345678901234567890
       - INFLUXDB_ORG=energy-org
       - INFLUXDB_BUCKET=iot-data
-      - CELERY_BROKER_URL=redis://:redis123@redis:6379/3
+      - AUTH_SERVICE_URL=http://auth-service:8005
+      - CELERY_BROKER_URL=redis://:redis123@redis:6379/4
       - LOG_LEVEL=INFO
     depends_on:
       postgres:
@@ -281,6 +341,8 @@ services:
       redis:
         condition: service_healthy
       influxdb:
+        condition: service_healthy
+      auth-service:
         condition: service_healthy
     volumes:
       - ./services/data-processing:/app
@@ -297,13 +359,15 @@ services:
     command: celery -A app.celery beat --loglevel=info
     environment:
       - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking
-      - REDIS_URL=redis://:redis123@redis:6379/2
-      - CELERY_BROKER_URL=redis://:redis123@redis:6379/3
+      - REDIS_URL=redis://:redis123@redis:6379/3
+      - CELERY_BROKER_URL=redis://:redis123@redis:6379/4
       - LOG_LEVEL=INFO
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      auth-service:
         condition: service_healthy
     volumes:
       - ./services/data-processing:/app
@@ -320,6 +384,7 @@ services:
     container_name: energy-frontend
     environment:
       - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_AUTH_URL=http://localhost:8005
       - REACT_APP_WS_URL=ws://localhost:8000/ws
       - REACT_APP_ENV=development
       - WATCHPACK_POLLING=true
