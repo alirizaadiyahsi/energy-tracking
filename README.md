@@ -33,8 +33,12 @@ This project follows a microservice architecture with the following components:
 - Time-series data storage optimized for IoT workloads
 - RESTful API with comprehensive documentation
 - Real-time dashboard with WebSocket updates
+- **Comprehensive RBAC system** with role-based permissions
+- **Multi-tenant architecture** with organization support
+- **Advanced user management** with audit logging
 - Device management and configuration
 - Data export capabilities
+- **Security features** (JWT auth, session management, audit trails)
 
 ### Planned Features
 - Machine learning-based forecasting models
@@ -147,11 +151,14 @@ energy-tracking/
 
 ## 📊 Data Flow
 
-1. **Data Ingestion**: IoT devices send data via MQTT or HTTP APIs
-2. **Data Processing**: Real-time validation, transformation, and enrichment
-3. **Storage**: Time-series data stored in InfluxDB, metadata in PostgreSQL
-4. **Analytics**: Background processing for forecasting and analysis
-5. **Visualization**: Real-time dashboard updates via WebSockets
+1. **Authentication**: Users authenticate with JWT tokens and role-based permissions
+2. **Data Ingestion**: IoT devices send data via MQTT or HTTP APIs (with proper authorization)
+3. **Data Processing**: Real-time validation, transformation, and enrichment
+4. **Access Control**: Role-based filtering ensures users only see authorized data
+5. **Storage**: Time-series data stored in InfluxDB, metadata in PostgreSQL
+6. **Analytics**: Background processing for forecasting and analysis (permission-based)
+7. **Visualization**: Real-time dashboard updates via WebSockets with user context
+8. **Audit**: All user activities and data changes are logged for compliance
 
 ## 🔧 Configuration
 
