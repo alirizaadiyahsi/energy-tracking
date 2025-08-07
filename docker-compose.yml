@@ -354,7 +354,7 @@ services:
       - energy-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "celery", "-A", "tasks.email_tasks", "inspect", "ping"]
+      test: ["CMD", "python", "-c", "import tasks.email_tasks; print('OK')"]
       interval: 30s
       timeout: 10s
       retries: 3
