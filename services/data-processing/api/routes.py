@@ -6,8 +6,12 @@ from core.database import get_db
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from models.energy_metrics import EnergyMetrics
 from models.processing_job import ProcessingJob
-from schemas.processing import (EnergyMetricsResponse, ProcessingJobCreate,
-                                ProcessingJobResponse, ProcessingStatsResponse)
+from schemas.processing import (
+    EnergyMetricsResponse,
+    ProcessingJobCreate,
+    ProcessingJobResponse,
+    ProcessingStatsResponse,
+)
 from services.influx_service import InfluxService
 from services.processing_service import ProcessingService
 from sqlalchemy import select

@@ -11,10 +11,17 @@ from core.database import get_db
 from core.security import security
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from schemas.auth import (ChangePasswordRequest, EmailVerificationRequest,
-                          LoginRequest, LoginResponse, PasswordResetRequest,
-                          RegisterRequest, RegisterResponse,
-                          TokenRefreshRequest, TokenRefreshResponse)
+from schemas.auth import (
+    ChangePasswordRequest,
+    EmailVerificationRequest,
+    LoginRequest,
+    LoginResponse,
+    PasswordResetRequest,
+    RegisterRequest,
+    RegisterResponse,
+    TokenRefreshRequest,
+    TokenRefreshResponse,
+)
 from services.auth_service import AuthService
 from services.user_service import UserService
 from sqlalchemy.ext.asyncio import AsyncSession

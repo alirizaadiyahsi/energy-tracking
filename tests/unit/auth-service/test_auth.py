@@ -463,8 +463,7 @@ class TestSecurityUtils:
 
     def test_session_management(self):
         """Test session management"""
-        from core.security import (create_session, invalidate_session,
-                                   validate_session)
+        from core.security import create_session, invalidate_session, validate_session
 
         user_id = str(uuid.uuid4())
 
