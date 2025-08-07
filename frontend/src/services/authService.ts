@@ -11,21 +11,43 @@ class AuthService {
       localStorage.setItem('accessToken', access_token);
       localStorage.setItem('refreshToken', refresh_token);
       
-      // Transform the response to match our expected format
-      return {
-        user: {
-          id: response.data.user_id,
-          email: response.data.email,
-          firstName: '', // Will be filled from /auth/me
-          lastName: '',
-          role: '',
-          permissions: [],
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        },
-        accessToken: access_token,
-        refreshToken: refresh_token,
-      };
+      // Get user details from /auth/me endpoint
+      try {
+        const userResponse = await authApi.get<any>('/auth/me');
+        const userData = userResponse.data;
+        
+        // Transform the response to match our expected format
+        return {
+          user: {
+            id: userData.id,
+            email: userData.email,
+            firstName: userData.full_name ? userData.full_name.split(' ')[0] : '',
+            lastName: userData.full_name ? userData.full_name.split(' ').slice(1).join(' ') : '',
+            role: userData.is_superuser ? 'admin' : 'user',
+            permissions: [],
+            isActive: userData.is_active,
+            createdAt: userData.created_at,
+          },
+          accessToken: access_token,
+          refreshToken: refresh_token,
+        };
+      } catch (userError) {
+        // If getting user fails, still return login success but with minimal user data
+        return {
+          user: {
+            id: response.data.user_id,
+            email: response.data.email,
+            firstName: '',
+            lastName: '',
+            role: '',
+            permissions: [],
+            isActive: true,
+            createdAt: new Date().toISOString(),
+          },
+          accessToken: access_token,
+          refreshToken: refresh_token,
+        };
+      }
     }
     
     throw new Error('Login failed');
@@ -56,9 +78,19 @@ class AuthService {
   }
 
   async getCurrentUser(): Promise<User> {
-    const response = await authApi.get<User>('/auth/me');
+    const response = await authApi.get<any>('/auth/me');
     if (response.data) {
-      return response.data;
+      const userData = response.data;
+      return {
+        id: userData.id,
+        email: userData.email,
+        firstName: userData.full_name ? userData.full_name.split(' ')[0] : '',
+        lastName: userData.full_name ? userData.full_name.split(' ').slice(1).join(' ') : '',
+        role: userData.is_superuser ? 'admin' : 'user',
+        permissions: [],
+        isActive: userData.is_active,
+        createdAt: userData.created_at,
+      };
     }
     throw new Error('Failed to get user info');
   }

@@ -3,7 +3,7 @@ import { DashboardData, ApiResponse, ChartDataPoint } from '../types';
 
 class DashboardService {
   async getDashboardData(): Promise<DashboardData> {
-    const response = await api.get<ApiResponse<DashboardData>>('/dashboard');
+    const response = await api.get<ApiResponse<DashboardData>>('/api/v1/analytics/dashboard');
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
@@ -11,7 +11,7 @@ class DashboardService {
   }
 
   async getEnergyChart(period: 'day' | 'week' | 'month' | 'year' = 'day'): Promise<ChartDataPoint[]> {
-    const response = await api.get<ApiResponse<ChartDataPoint[]>>(`/dashboard/energy-chart?period=${period}`);
+    const response = await api.get<ApiResponse<ChartDataPoint[]>>(`/api/v1/analytics/consumption/trends?period=${period}`);
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
