@@ -1,0 +1,428 @@
+name: E2E Tests
+
+on:
+  schedule:
+    # Run E2E tests twice daily (6 AM and 6 PM UTC)
+    - cron: '0 6,18 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+          - local
+      browser:
+        description: 'Browser for testing'
+        required: true
+        default: 'chrome'
+        type: choice
+        options:
+          - chrome
+          - firefox
+          - edge
+      test_suite:
+        description: 'Test suite to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - api-only
+          - browser-only
+          - critical-paths
+      headless:
+        description: 'Run in headless mode'
+        required: true
+        default: true
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  # Job 1: E2E API Tests
+  e2e-api-tests:
+    name: E2E API Tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.test_suite != 'browser-only' }}
+    timeout-minutes: 30
+    
+    strategy:
+      matrix:
+        test_group: [auth, devices, analytics, data-pipeline]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-e2e-${{ hashFiles('**/test-requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-e2e-
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r tests/test-requirements.txt
+        
+    - name: Set environment variables
+      run: |
+        case "${{ github.event.inputs.environment || 'staging' }}" in
+          "staging")
+            echo "API_BASE_URL=https://staging-api.energy-tracking.com" >> $GITHUB_ENV
+            echo "FRONTEND_BASE_URL=https://staging.energy-tracking.com" >> $GITHUB_ENV
+            ;;
+          "production")
+            echo "API_BASE_URL=https://api.energy-tracking.com" >> $GITHUB_ENV
+            echo "FRONTEND_BASE_URL=https://energy-tracking.com" >> $GITHUB_ENV
+            ;;
+          "local")
+            echo "API_BASE_URL=http://localhost:8000" >> $GITHUB_ENV
+            echo "FRONTEND_BASE_URL=http://localhost:3000" >> $GITHUB_ENV
+            ;;
+        esac
+        
+    - name: Health check target environment
+      run: |
+        echo "Checking health of $API_BASE_URL"
+        curl -f "$API_BASE_URL/health" || {
+          echo "❌ API environment is not healthy"
+          exit 1
+        }
+        echo "✅ API environment is healthy"
+        
+    - name: Run E2E API tests - ${{ matrix.test_group }}
+      env:
+        TEST_GROUP: ${{ matrix.test_group }}
+        E2E_CONFIG_FILE: tests/e2e/config.ini
+      run: |
+        # Update config file with environment-specific settings
+        python .github/scripts/update_e2e_config.py \
+          --config-file $E2E_CONFIG_FILE \
+          --api-url $API_BASE_URL \
+          --frontend-url $FRONTEND_BASE_URL \
+          --test-group $TEST_GROUP
+          
+        # Run specific test group
+        python tests/e2e/test_complete_flows.py \
+          --host $API_BASE_URL \
+          --test-group $TEST_GROUP \
+          --verbose \
+          --output-dir e2e-api-results-$TEST_GROUP
+          
+    - name: Upload API test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: e2e-api-results-${{ matrix.test_group }}
+        path: |
+          e2e-api-results-${{ matrix.test_group }}/
+          tests/e2e/results/
+
+  # Job 2: E2E Browser Tests
+  e2e-browser-tests:
+    name: E2E Browser Tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.test_suite != 'api-only' }}
+    timeout-minutes: 45
+    
+    strategy:
+      matrix:
+        browser: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["' + github.event.inputs.browser + '"]') || fromJSON('["chrome", "firefox"]') }}
+        test_suite: [user-flows, device-management, analytics-dashboard]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-browser-${{ hashFiles('**/test-requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-browser-
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r tests/test-requirements.txt
+        pip install selenium
+        
+    - name: Set up Chrome
+      if: matrix.browser == 'chrome'
+      uses: browser-actions/setup-chrome@v1
+      with:
+        chrome-version: stable
+        
+    - name: Set up Firefox
+      if: matrix.browser == 'firefox'
+      uses: browser-actions/setup-firefox@v1
+      with:
+        firefox-version: latest
+        
+    - name: Set up Edge
+      if: matrix.browser == 'edge'
+      uses: browser-actions/setup-edge@v1
+      with:
+        edge-version: stable
+        
+    - name: Install WebDriver
+      run: |
+        case "${{ matrix.browser }}" in
+          "chrome")
+            CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d. -f1)
+            wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}/chromedriver_linux64.zip"
+            unzip /tmp/chromedriver.zip -d /tmp/
+            sudo mv /tmp/chromedriver /usr/local/bin/
+            sudo chmod +x /usr/local/bin/chromedriver
+            ;;
+          "firefox")
+            wget -O /tmp/geckodriver.tar.gz "https://github.com/mozilla/geckodriver/releases/latest/download/geckodriver-v0.33.0-linux64.tar.gz"
+            tar -xzf /tmp/geckodriver.tar.gz -C /tmp/
+            sudo mv /tmp/geckodriver /usr/local/bin/
+            sudo chmod +x /usr/local/bin/geckodriver
+            ;;
+        esac
+        
+    - name: Set environment variables
+      run: |
+        case "${{ github.event.inputs.environment || 'staging' }}" in
+          "staging")
+            echo "FRONTEND_BASE_URL=https://staging.energy-tracking.com" >> $GITHUB_ENV
+            ;;
+          "production")
+            echo "FRONTEND_BASE_URL=https://energy-tracking.com" >> $GITHUB_ENV
+            ;;
+          "local")
+            echo "FRONTEND_BASE_URL=http://localhost:3000" >> $GITHUB_ENV
+            ;;
+        esac
+        
+        echo "BROWSER=${{ matrix.browser }}" >> $GITHUB_ENV
+        echo "HEADLESS=${{ github.event.inputs.headless || 'true' }}" >> $GITHUB_ENV
+        
+    - name: Check frontend availability
+      run: |
+        echo "Checking frontend at $FRONTEND_BASE_URL"
+        curl -f "$FRONTEND_BASE_URL" || {
+          echo "❌ Frontend is not accessible"
+          exit 1
+        }
+        echo "✅ Frontend is accessible"
+        
+    - name: Run browser E2E tests - ${{ matrix.test_suite }}
+      env:
+        TEST_SUITE: ${{ matrix.test_suite }}
+        SCREENSHOTS_DIR: screenshots-${{ matrix.browser }}-${{ matrix.test_suite }}
+      run: |
+        mkdir -p $SCREENSHOTS_DIR
+        
+        # Configure browser-specific settings
+        python .github/scripts/configure_browser_tests.py \
+          --browser $BROWSER \
+          --headless $HEADLESS \
+          --test-suite $TEST_SUITE \
+          --frontend-url $FRONTEND_BASE_URL \
+          --screenshots-dir $SCREENSHOTS_DIR
+          
+        # Run browser tests
+        python tests/e2e/test_browser_flows.py \
+          --url $FRONTEND_BASE_URL \
+          --browser $BROWSER \
+          --test-suite $TEST_SUITE \
+          $([ "$HEADLESS" = "true" ] && echo "--headless") \
+          --output-dir browser-results-$BROWSER-$TEST_SUITE
+          
+    - name: Upload browser test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: e2e-browser-results-${{ matrix.browser }}-${{ matrix.test_suite }}
+        path: |
+          browser-results-${{ matrix.browser }}-${{ matrix.test_suite }}/
+          screenshots-${{ matrix.browser }}-${{ matrix.test_suite }}/
+          tests/e2e/screenshots/
+          
+    - name: Upload failure screenshots
+      uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: failure-screenshots-${{ matrix.browser }}-${{ matrix.test_suite }}
+        path: screenshots-${{ matrix.browser }}-${{ matrix.test_suite }}/
+
+  # Job 3: Critical Path Tests
+  critical-path-tests:
+    name: Critical Path Tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.test_suite == 'all' || github.event.inputs.test_suite == 'critical-paths' }}
+    timeout-minutes: 20
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r tests/test-requirements.txt
+        
+    - name: Set environment variables
+      run: |
+        case "${{ github.event.inputs.environment || 'staging' }}" in
+          "staging")
+            echo "API_BASE_URL=https://staging-api.energy-tracking.com" >> $GITHUB_ENV
+            ;;
+          "production")
+            echo "API_BASE_URL=https://api.energy-tracking.com" >> $GITHUB_ENV
+            ;;
+          "local")
+            echo "API_BASE_URL=http://localhost:8000" >> $GITHUB_ENV
+            ;;
+        esac
+        
+    - name: Run critical path tests
+      run: |
+        python .github/scripts/run_critical_path_tests.py \
+          --api-url $API_BASE_URL \
+          --timeout 300 \
+          --retry-attempts 3 \
+          --output critical-path-results.json
+          
+    - name: Validate critical functionality
+      run: |
+        python .github/scripts/validate_critical_functionality.py \
+          --results critical-path-results.json \
+          --thresholds .github/config/critical-path-thresholds.json
+          
+    - name: Upload critical path results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: critical-path-results
+        path: critical-path-results.json
+
+  # Job 4: E2E Test Summary
+  e2e-summary:
+    name: E2E Test Summary
+    runs-on: ubuntu-latest
+    needs: [e2e-api-tests, e2e-browser-tests, critical-path-tests]
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download all E2E test results
+      uses: actions/download-artifact@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Generate E2E test report
+      run: |
+        python .github/scripts/generate_e2e_report.py \
+          --input-dir . \
+          --environment "${{ github.event.inputs.environment || 'staging' }}" \
+          --output e2e-dashboard.html
+          
+    - name: Check E2E test results
+      id: check_results
+      run: |
+        python .github/scripts/check_e2e_results.py \
+          --input-dir . \
+          --output-var GITHUB_OUTPUT
+          
+    - name: Upload E2E dashboard
+      uses: actions/upload-artifact@v3
+      with:
+        name: e2e-dashboard
+        path: |
+          e2e-dashboard.html
+          e2e-summary.json
+          
+    - name: Notify on E2E failures
+      if: steps.check_results.outputs.status == 'failure'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = JSON.parse(fs.readFileSync('e2e-summary.json', 'utf8'));
+          
+          const issue = await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `🚨 E2E Test Failures - ${summary.environment} - ${new Date().toISOString().split('T')[0]}`,
+            body: `## End-to-End Test Failures
+            
+            **Environment:** ${summary.environment}
+            **Date:** ${new Date().toISOString()}
+            **Workflow:** [${context.runId}](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+            
+            ### Failed Tests:
+            ${summary.failed_tests.map(test => `- ${test.name}: ${test.error}`).join('\n')}
+            
+            ### Summary:
+            - **Total Tests:** ${summary.total_tests}
+            - **Passed:** ${summary.passed_tests}
+            - **Failed:** ${summary.failed_tests.length}
+            - **Success Rate:** ${summary.success_rate}%
+            
+            ### Next Steps:
+            1. Review failed test details in the workflow
+            2. Check application logs for the test period
+            3. Validate environment health
+            4. Re-run tests if transient issues are suspected
+            
+            ### Resources:
+            - [E2E Dashboard](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+            - [Environment Status](https://${summary.environment === 'production' ? '' : 'staging.'}energy-tracking.com/health)
+            
+            **Auto-generated by E2E Testing Workflow**
+            `,
+            labels: ['e2e-tests', 'bug', 'automated', summary.environment]
+          });
+          
+          console.log(`Created issue #${issue.data.number}`);
+          
+    - name: Post to Slack
+      if: steps.check_results.outputs.status == 'failure' && github.event_name == 'schedule'
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: |
+          🚨 E2E Test Failures Detected!
+          
+          Environment: ${{ github.event.inputs.environment || 'staging' }}
+          Failed Tests: ${{ steps.check_results.outputs.failed_count }}
+          
+          View Details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
