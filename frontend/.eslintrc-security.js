@@ -1,0 +1,68 @@
+{
+  "extends": [
+    "eslint:recommended",
+    "@typescript-eslint/recommended",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended",
+    "plugin:security/recommended"
+  ],
+  "plugins": [
+    "security",
+    "no-secrets"
+  ],
+  "rules": {
+    // Security rules
+    "security/detect-object-injection": "error",
+    "security/detect-non-literal-fs-filename": "error",
+    "security/detect-non-literal-regexp": "error",
+    "security/detect-non-literal-require": "error",
+    "security/detect-possible-timing-attacks": "error",
+    "security/detect-pseudoRandomBytes": "error",
+    "security/detect-unsafe-regex": "error",
+    "security/detect-buffer-noassert": "error",
+    "security/detect-child-process": "error",
+    "security/detect-disable-mustache-escape": "error",
+    "security/detect-eval-with-expression": "error",
+    "security/detect-new-buffer": "error",
+    "security/detect-no-csrf-before-method-override": "error",
+    
+    // Secret detection
+    "no-secrets/no-secrets": ["error", {
+      "tolerance": 4.2,
+      "additionalRegexes": {
+        "Basic Auth": "Authorization: Basic [A-Za-z0-9+/=]+",
+        "Bearer Token": "Authorization: Bearer [A-Za-z0-9\\-\\._~\\+\\/]+=*",
+        "AWS Access Key": "AKIA[0-9A-Z]{16}",
+        "Private Key": "-----BEGIN (RSA |DSA |EC |PGP )?PRIVATE KEY",
+        "API Key": "[Aa][Pp][Ii]_?[Kk][Ee][Yy].*['\"][0-9a-zA-Z]{32,45}['\"]"
+      }
+    }],
+    
+    // React security rules
+    "react/no-danger": "error",
+    "react/no-danger-with-children": "error",
+    "react/no-unescaped-entities": "error",
+    
+    // General security best practices
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "no-script-url": "error"
+  },
+  "settings": {
+    "react": {
+      "version": "detect"
+    }
+  },
+  "env": {
+    "browser": true,
+    "es2021": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 12,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  }
+}
