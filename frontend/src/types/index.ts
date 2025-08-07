@@ -23,7 +23,20 @@ export interface LoginRequest {
   rememberMe?: boolean;
 }
 
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+}
+
 export interface LoginResponse {
+  user: User;
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface RegisterResponse {
   user: User;
   accessToken: string;
   refreshToken: string;

@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { AuthState, User, LoginRequest } from '../types';
+import { AuthState, User, LoginRequest, RegisterRequest } from '../types';
 import authService from '../services/authService';
 import { toast } from 'react-hot-toast';
 
 interface AuthContextType extends AuthState {
   login: (credentials: LoginRequest) => Promise<void>;
+  register: (userData: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -98,7 +99,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       toast.success('Login successful!');
     } catch (error: any) {
       dispatch({ type: 'LOGIN_FAILURE' });
-      toast.error(error.message || 'Login failed');
+      
+      // Check if it's a "user not found" error and provide helpful message
+      const errorMessage = error.response?.data?.message || error.message || 'Login failed';
+      if (errorMessage.toLowerCase().includes('user') && 
+          (errorMessage.toLowerCase().includes('not found') || 
+           errorMessage.toLowerCase().includes('does not exist'))) {
+        toast.error('Account not found. Please register first or check your email.');
+      } else {
+        toast.error(errorMessage);
+      }
+      throw error;
+    }
+  };
+
+  const register = async (userData: RegisterRequest): Promise<void> => {
+    try {
+      dispatch({ type: 'LOGIN_START' });
+      const response = await authService.register(userData);
+      dispatch({
+        type: 'LOGIN_SUCCESS',
+        payload: {
+          user: response.user,
+          token: response.accessToken,
+        },
+      });
+      toast.success('Account created successfully!');
+    } catch (error: any) {
+      dispatch({ type: 'LOGIN_FAILURE' });
+      toast.error(error.message || 'Registration failed');
       throw error;
     }
   };
@@ -155,6 +184,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const value: AuthContextType = {
     ...state,
     login,
+    register,
     logout,
     refreshUser,
   };

@@ -6,6 +6,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Devices from './pages/Devices';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
@@ -38,6 +39,7 @@ function App() {
             />
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
               <Route
                 path="/*"
                 element={

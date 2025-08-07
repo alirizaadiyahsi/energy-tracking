@@ -1,9 +1,9 @@
-import api from './api';
-import { LoginRequest, LoginResponse, User, ApiResponse } from '../types';
+import authApi from './authApi';
+import { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, User, ApiResponse } from '../types';
 
 class AuthService {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    const response = await api.post<ApiResponse<LoginResponse>>('/auth/login', credentials);
+    const response = await authApi.post<ApiResponse<LoginResponse>>('/auth/login', credentials);
     
     if (response.data.success && response.data.data) {
       const { accessToken, refreshToken } = response.data.data;
@@ -15,9 +15,22 @@ class AuthService {
     throw new Error(response.data.message || 'Login failed');
   }
 
+  async register(userData: RegisterRequest): Promise<RegisterResponse> {
+    const response = await authApi.post<ApiResponse<RegisterResponse>>('/auth/register', userData);
+    
+    if (response.data.success && response.data.data) {
+      const { accessToken, refreshToken } = response.data.data;
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      return response.data.data;
+    }
+    
+    throw new Error(response.data.message || 'Registration failed');
+  }
+
   async logout(): Promise<void> {
     try {
-      await api.post('/auth/logout');
+      await authApi.post('/auth/logout');
     } finally {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
@@ -25,7 +38,7 @@ class AuthService {
   }
 
   async getCurrentUser(): Promise<User> {
-    const response = await api.get<ApiResponse<User>>('/auth/me');
+    const response = await authApi.get<ApiResponse<User>>('/auth/me');
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
@@ -38,7 +51,7 @@ class AuthService {
       throw new Error('No refresh token available');
     }
 
-    const response = await api.post<ApiResponse<{ accessToken: string }>>('/auth/refresh', {
+    const response = await authApi.post<ApiResponse<{ accessToken: string }>>('/auth/refresh', {
       refreshToken,
     });
 
