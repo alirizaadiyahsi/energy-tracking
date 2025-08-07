@@ -1,14 +1,15 @@
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
+import logging
 import smtplib
 import ssl
-from typing import Optional, Dict, Any, List
-from core.config import settings
-import logging
-import jinja2
+from email import encoders
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import jinja2
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +22,12 @@ class EmailService:
         self.password = settings.SMTP_PASSWORD
         self.use_tls = settings.SMTP_USE_TLS
         self.from_email = settings.FROM_EMAIL
-        
+
         # Setup Jinja2 template environment
         template_dir = Path(__file__).parent / "templates"
         self.template_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(template_dir),
-            autoescape=jinja2.select_autoescape(['html', 'xml'])
+            autoescape=jinja2.select_autoescape(["html", "xml"]),
         )
 
     def send_email(
@@ -37,7 +38,7 @@ class EmailService:
         html_message: Optional[str] = None,
         template_name: Optional[str] = None,
         template_data: Optional[Dict[str, Any]] = None,
-        attachments: Optional[List[str]] = None
+        attachments: Optional[List[str]] = None,
     ) -> bool:
         """
         Send an email
@@ -54,18 +55,23 @@ class EmailService:
                 try:
                     template = self.template_env.get_template(f"{template_name}.html")
                     html_message = template.render(**template_data)
-                    
+
                     # Try to get text version
                     try:
-                        text_template = self.template_env.get_template(f"{template_name}.txt")
+                        text_template = self.template_env.get_template(
+                            f"{template_name}.txt"
+                        )
                         message = text_template.render(**template_data)
                     except jinja2.TemplateNotFound:
                         # Use HTML stripped of tags as fallback
                         import re
-                        message = re.sub(r'<[^>]+>', '', html_message)
-                        
+
+                        message = re.sub(r"<[^>]+>", "", html_message)
+
                 except jinja2.TemplateNotFound:
-                    logger.warning(f"Template {template_name} not found, using plain message")
+                    logger.warning(
+                        f"Template {template_name} not found, using plain message"
+                    )
 
             # Add text part
             text_part = MIMEText(message, "plain")
@@ -83,14 +89,16 @@ class EmailService:
 
             # Send email
             context = ssl.create_default_context()
-            
+
             if self.use_tls:
                 with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                     server.starttls(context=context)
                     server.login(self.username, self.password)
                     server.send_message(msg)
             else:
-                with smtplib.SMTP_SSL(self.smtp_server, self.smtp_port, context=context) as server:
+                with smtplib.SMTP_SSL(
+                    self.smtp_server, self.smtp_port, context=context
+                ) as server:
                     server.login(self.username, self.password)
                     server.send_message(msg)
 
@@ -111,7 +119,7 @@ class EmailService:
                 part.set_payload(attachment.read())
 
             encoders.encode_base64(part)
-            
+
             filename = Path(file_path).name
             part.add_header(
                 "Content-Disposition",
@@ -119,7 +127,7 @@ class EmailService:
             )
 
             msg.attach(part)
-            
+
         except Exception as exc:
             logger.error(f"Failed to add attachment {file_path}: {exc}")
 
@@ -130,13 +138,13 @@ class EmailService:
         message: str,
         html_message: Optional[str] = None,
         template_name: Optional[str] = None,
-        template_data: Optional[Dict[str, Any]] = None
+        template_data: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, bool]:
         """
         Send email to multiple recipients
         """
         results = {}
-        
+
         for recipient in recipients:
             success = self.send_email(
                 recipient=recipient,
@@ -144,10 +152,10 @@ class EmailService:
                 message=message,
                 html_message=html_message,
                 template_name=template_name,
-                template_data=template_data
+                template_data=template_data,
             )
             results[recipient] = success
-            
+
         return results
 
     def test_connection(self) -> bool:
@@ -156,18 +164,20 @@ class EmailService:
         """
         try:
             context = ssl.create_default_context()
-            
+
             if self.use_tls:
                 with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                     server.starttls(context=context)
                     server.login(self.username, self.password)
             else:
-                with smtplib.SMTP_SSL(self.smtp_server, self.smtp_port, context=context) as server:
+                with smtplib.SMTP_SSL(
+                    self.smtp_server, self.smtp_port, context=context
+                ) as server:
                     server.login(self.username, self.password)
-                    
+
             logger.info("SMTP connection test successful")
             return True
-            
+
         except Exception as exc:
             logger.error(f"SMTP connection test failed: {exc}")
             return False

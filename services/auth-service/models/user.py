@@ -1,11 +1,14 @@
-from pydantic import BaseModel
-from sqlalchemy import Column, String, Boolean, DateTime, Integer
-from sqlalchemy.dialects.postgresql import UUID, ENUM
-from sqlalchemy.orm import relationship
 import uuid
-from core.database import Base
 from datetime import datetime
+
+from core.database import Base
+from pydantic import BaseModel
+from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy.dialects.postgresql import ENUM, UUID
+from sqlalchemy.orm import relationship
+
 from .associations import user_roles
+
 
 class User(Base):
     __tablename__ = "users"
@@ -19,7 +22,12 @@ class User(Base):
     phone = Column(String(20), nullable=True)
     department = Column(String(100), nullable=True)
     position = Column(String(100), nullable=True)
-    status = Column(ENUM('active', 'inactive', 'suspended', 'pending_activation', name='user_status'), default="pending_activation")
+    status = Column(
+        ENUM(
+            "active", "inactive", "suspended", "pending_activation", name="user_status"
+        ),
+        default="pending_activation",
+    )
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
     last_login = Column(DateTime, nullable=True)

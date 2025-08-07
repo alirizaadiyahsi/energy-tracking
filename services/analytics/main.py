@@ -1,22 +1,23 @@
+import logging
+import os
+import sys
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import logging
-import sys
-import os
 
 # Add the project root to the path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from core.config import settings
-from core.database import init_db
 from api.routes import router
 from celery_app import celery_app
+from core.config import settings
+from core.database import init_db
 
 # Configure logging
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ app = FastAPI(
     description="Service for energy consumption analytics and reporting",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
 
 # Add CORS middleware
@@ -41,15 +42,13 @@ app.add_middleware(
 # Include routers
 app.include_router(router, prefix="/api/v1")
 
+
 # Health check endpoint
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "service": "analytics",
-        "version": "1.0.0"
-    }
+    return {"status": "healthy", "service": "analytics", "version": "1.0.0"}
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -58,11 +57,12 @@ async def startup_event():
     await init_db()
     logger.info("Analytics Service started successfully")
 
+
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
         port=8003,
         reload=True,
-        log_level=settings.LOG_LEVEL.lower()
+        log_level=settings.LOG_LEVEL.lower(),
     )

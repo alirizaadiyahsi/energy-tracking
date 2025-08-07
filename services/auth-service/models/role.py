@@ -1,10 +1,13 @@
-from sqlalchemy import Column, String, Boolean, DateTime, Text
+import uuid
+from datetime import datetime
+
+from core.database import Base
+from sqlalchemy import Boolean, Column, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-import uuid
-from core.database import Base
-from datetime import datetime
-from .associations import user_roles, role_permissions
+
+from .associations import role_permissions, user_roles
+
 
 class Role(Base):
     __tablename__ = "roles"
@@ -21,5 +24,7 @@ class Role(Base):
     created_by = Column(UUID(as_uuid=True), nullable=True)
 
     # relationships
-    permissions = relationship("Permission", secondary=role_permissions, back_populates="roles")
+    permissions = relationship(
+        "Permission", secondary=role_permissions, back_populates="roles"
+    )
     users = relationship("User", secondary=user_roles, back_populates="roles")

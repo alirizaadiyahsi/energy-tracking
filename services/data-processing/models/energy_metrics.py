@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, Text
-from sqlalchemy.sql import func
 from core.database import Base
+from sqlalchemy import Column, DateTime, Float, Integer, String, Text
+from sqlalchemy.sql import func
 
 
 class EnergyMetrics(Base):

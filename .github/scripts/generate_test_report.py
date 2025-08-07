@@ -2,14 +2,14 @@
 """
 Generate combined test report from multiple test result artifacts
 """
+import argparse
 import json
 import os
 import sys
-import argparse
-from pathlib import Path
-from typing import Dict, List, Any
 import xml.etree.ElementTree as ET
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List
 
 
 def parse_junit_xml(file_path: Path) -> Dict[str, Any]:
@@ -17,165 +17,225 @@ def parse_junit_xml(file_path: Path) -> Dict[str, Any]:
     try:
         tree = ET.parse(file_path)
         root = tree.getroot()
-        
+
         # Handle both testsuites and testsuite root elements
-        if root.tag == 'testsuites':
+        if root.tag == "testsuites":
             testsuites = root
         else:
             testsuites = [root]
-            
+
         total_tests = 0
         total_failures = 0
         total_errors = 0
         total_skipped = 0
         test_cases = []
-        
+
         for testsuite in testsuites:
-            if testsuite.tag != 'testsuite':
+            if testsuite.tag != "testsuite":
                 continue
-                
-            tests = int(testsuite.get('tests', 0))
-            failures = int(testsuite.get('failures', 0))
-            errors = int(testsuite.get('errors', 0))
-            skipped = int(testsuite.get('skipped', 0))
-            
+
+            tests = int(testsuite.get("tests", 0))
+            failures = int(testsuite.get("failures", 0))
+            errors = int(testsuite.get("errors", 0))
+            skipped = int(testsuite.get("skipped", 0))
+
             total_tests += tests
             total_failures += failures
             total_errors += errors
             total_skipped += skipped
-            
+
             # Extract individual test cases
-            for testcase in testsuite.findall('testcase'):
+            for testcase in testsuite.findall("testcase"):
                 case_info = {
-                    'name': testcase.get('name'),
-                    'classname': testcase.get('classname'),
-                    'time': float(testcase.get('time', 0)),
-                    'status': 'passed'
+                    "name": testcase.get("name"),
+                    "classname": testcase.get("classname"),
+                    "time": float(testcase.get("time", 0)),
+                    "status": "passed",
                 }
-                
-                if testcase.find('failure') is not None:
-                    case_info['status'] = 'failed'
-                    case_info['message'] = testcase.find('failure').get('message', '')
-                elif testcase.find('error') is not None:
-                    case_info['status'] = 'error'
-                    case_info['message'] = testcase.find('error').get('message', '')
-                elif testcase.find('skipped') is not None:
-                    case_info['status'] = 'skipped'
-                    case_info['message'] = testcase.find('skipped').get('message', '')
-                
+
+                if testcase.find("failure") is not None:
+                    case_info["status"] = "failed"
+                    case_info["message"] = testcase.find("failure").get("message", "")
+                elif testcase.find("error") is not None:
+                    case_info["status"] = "error"
+                    case_info["message"] = testcase.find("error").get("message", "")
+                elif testcase.find("skipped") is not None:
+                    case_info["status"] = "skipped"
+                    case_info["message"] = testcase.find("skipped").get("message", "")
+
                 test_cases.append(case_info)
-        
+
         return {
-            'total_tests': total_tests,
-            'total_failures': total_failures,
-            'total_errors': total_errors,
-            'total_skipped': total_skipped,
-            'success_rate': ((total_tests - total_failures - total_errors) / total_tests * 100) if total_tests > 0 else 0,
-            'test_cases': test_cases
+            "total_tests": total_tests,
+            "total_failures": total_failures,
+            "total_errors": total_errors,
+            "total_skipped": total_skipped,
+            "success_rate": (
+                ((total_tests - total_failures - total_errors) / total_tests * 100)
+                if total_tests > 0
+                else 0
+            ),
+            "test_cases": test_cases,
         }
-        
+
     except Exception as e:
         print(f"Error parsing {file_path}: {e}")
         return {
-            'total_tests': 0,
-            'total_failures': 0,
-            'total_errors': 0,
-            'total_skipped': 0,
-            'success_rate': 0,
-            'test_cases': [],
-            'error': str(e)
+            "total_tests": 0,
+            "total_failures": 0,
+            "total_errors": 0,
+            "total_skipped": 0,
+            "success_rate": 0,
+            "test_cases": [],
+            "error": str(e),
         }
 
 
 def collect_test_results(base_dir: Path) -> Dict[str, Any]:
     """Collect test results from all artifact directories"""
     results = {
-        'unit': {'status': 'not_run', 'passed': 0, 'failed': 0, 'skipped': 0, 'services': {}},
-        'integration': {'status': 'not_run', 'passed': 0, 'failed': 0, 'skipped': 0},
-        'security': {'status': 'not_run', 'passed': 0, 'failed': 0, 'skipped': 0},
-        'frontend': {'status': 'not_run', 'passed': 0, 'failed': 0, 'skipped': 0},
-        'overall': {'status': 'unknown', 'total_tests': 0, 'total_passed': 0, 'total_failed': 0}
+        "unit": {
+            "status": "not_run",
+            "passed": 0,
+            "failed": 0,
+            "skipped": 0,
+            "services": {},
+        },
+        "integration": {"status": "not_run", "passed": 0, "failed": 0, "skipped": 0},
+        "security": {"status": "not_run", "passed": 0, "failed": 0, "skipped": 0},
+        "frontend": {"status": "not_run", "passed": 0, "failed": 0, "skipped": 0},
+        "overall": {
+            "status": "unknown",
+            "total_tests": 0,
+            "total_passed": 0,
+            "total_failed": 0,
+        },
     }
-    
+
     # Look for unit test results
-    for item in base_dir.glob('unit-test-results-*'):
+    for item in base_dir.glob("unit-test-results-*"):
         if item.is_dir():
-            service_name = item.name.replace('unit-test-results-', '')
-            junit_files = list(item.glob('junit-*.xml'))
-            
+            service_name = item.name.replace("unit-test-results-", "")
+            junit_files = list(item.glob("junit-*.xml"))
+
             if junit_files:
                 service_results = parse_junit_xml(junit_files[0])
-                results['unit']['services'][service_name] = service_results
-                results['unit']['passed'] += service_results['total_tests'] - service_results['total_failures'] - service_results['total_errors']
-                results['unit']['failed'] += service_results['total_failures'] + service_results['total_errors']
-                results['unit']['skipped'] += service_results['total_skipped']
-    
-    if results['unit']['services']:
-        total_unit_tests = results['unit']['passed'] + results['unit']['failed'] + results['unit']['skipped']
-        results['unit']['status'] = 'passed' if results['unit']['failed'] == 0 else 'failed'
-    
+                results["unit"]["services"][service_name] = service_results
+                results["unit"]["passed"] += (
+                    service_results["total_tests"]
+                    - service_results["total_failures"]
+                    - service_results["total_errors"]
+                )
+                results["unit"]["failed"] += (
+                    service_results["total_failures"] + service_results["total_errors"]
+                )
+                results["unit"]["skipped"] += service_results["total_skipped"]
+
+    if results["unit"]["services"]:
+        total_unit_tests = (
+            results["unit"]["passed"]
+            + results["unit"]["failed"]
+            + results["unit"]["skipped"]
+        )
+        results["unit"]["status"] = (
+            "passed" if results["unit"]["failed"] == 0 else "failed"
+        )
+
     # Look for integration test results
-    integration_dir = base_dir / 'integration-test-results'
+    integration_dir = base_dir / "integration-test-results"
     if integration_dir.exists():
-        junit_files = list(integration_dir.glob('junit-*.xml'))
+        junit_files = list(integration_dir.glob("junit-*.xml"))
         if junit_files:
             integration_results = parse_junit_xml(junit_files[0])
-            results['integration']['passed'] = integration_results['total_tests'] - integration_results['total_failures'] - integration_results['total_errors']
-            results['integration']['failed'] = integration_results['total_failures'] + integration_results['total_errors']
-            results['integration']['skipped'] = integration_results['total_skipped']
-            results['integration']['status'] = 'passed' if results['integration']['failed'] == 0 else 'failed'
-    
+            results["integration"]["passed"] = (
+                integration_results["total_tests"]
+                - integration_results["total_failures"]
+                - integration_results["total_errors"]
+            )
+            results["integration"]["failed"] = (
+                integration_results["total_failures"]
+                + integration_results["total_errors"]
+            )
+            results["integration"]["skipped"] = integration_results["total_skipped"]
+            results["integration"]["status"] = (
+                "passed" if results["integration"]["failed"] == 0 else "failed"
+            )
+
     # Look for security test results
-    security_dir = base_dir / 'security-test-results'
+    security_dir = base_dir / "security-test-results"
     if security_dir.exists():
-        junit_files = list(security_dir.glob('junit-*.xml'))
+        junit_files = list(security_dir.glob("junit-*.xml"))
         if junit_files:
             security_results = parse_junit_xml(junit_files[0])
-            results['security']['passed'] = security_results['total_tests'] - security_results['total_failures'] - security_results['total_errors']
-            results['security']['failed'] = security_results['total_failures'] + security_results['total_errors']
-            results['security']['skipped'] = security_results['total_skipped']
-            results['security']['status'] = 'passed' if results['security']['failed'] == 0 else 'failed'
-    
+            results["security"]["passed"] = (
+                security_results["total_tests"]
+                - security_results["total_failures"]
+                - security_results["total_errors"]
+            )
+            results["security"]["failed"] = (
+                security_results["total_failures"] + security_results["total_errors"]
+            )
+            results["security"]["skipped"] = security_results["total_skipped"]
+            results["security"]["status"] = (
+                "passed" if results["security"]["failed"] == 0 else "failed"
+            )
+
     # Look for frontend test results
-    frontend_dir = base_dir / 'frontend-test-results'
+    frontend_dir = base_dir / "frontend-test-results"
     if frontend_dir.exists():
         # Frontend tests might use different format
-        results['frontend']['status'] = 'passed'  # Assume passed if directory exists
-    
+        results["frontend"]["status"] = "passed"  # Assume passed if directory exists
+
     # Calculate overall results
-    total_tests = sum([
-        results['unit']['passed'] + results['unit']['failed'] + results['unit']['skipped'],
-        results['integration']['passed'] + results['integration']['failed'] + results['integration']['skipped'],
-        results['security']['passed'] + results['security']['failed'] + results['security']['skipped']
-    ])
-    
-    total_passed = sum([
-        results['unit']['passed'],
-        results['integration']['passed'],
-        results['security']['passed']
-    ])
-    
-    total_failed = sum([
-        results['unit']['failed'],
-        results['integration']['failed'],
-        results['security']['failed']
-    ])
-    
-    results['overall']['total_tests'] = total_tests
-    results['overall']['total_passed'] = total_passed
-    results['overall']['total_failed'] = total_failed
-    
+    total_tests = sum(
+        [
+            results["unit"]["passed"]
+            + results["unit"]["failed"]
+            + results["unit"]["skipped"],
+            results["integration"]["passed"]
+            + results["integration"]["failed"]
+            + results["integration"]["skipped"],
+            results["security"]["passed"]
+            + results["security"]["failed"]
+            + results["security"]["skipped"],
+        ]
+    )
+
+    total_passed = sum(
+        [
+            results["unit"]["passed"],
+            results["integration"]["passed"],
+            results["security"]["passed"],
+        ]
+    )
+
+    total_failed = sum(
+        [
+            results["unit"]["failed"],
+            results["integration"]["failed"],
+            results["security"]["failed"],
+        ]
+    )
+
+    results["overall"]["total_tests"] = total_tests
+    results["overall"]["total_passed"] = total_passed
+    results["overall"]["total_failed"] = total_failed
+
     # Determine overall status
-    critical_failed = results['unit']['status'] == 'failed' or results['integration']['status'] == 'failed' or results['security']['status'] == 'failed'
-    results['overall']['status'] = 'failed' if critical_failed else 'passed'
-    
+    critical_failed = (
+        results["unit"]["status"] == "failed"
+        or results["integration"]["status"] == "failed"
+        or results["security"]["status"] == "failed"
+    )
+    results["overall"]["status"] = "failed" if critical_failed else "passed"
+
     return results
 
 
 def generate_html_report(results: Dict[str, Any]) -> str:
     """Generate HTML test report"""
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')
-    
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+
     html = f"""
 <!DOCTYPE html>
 <html>
@@ -308,9 +368,9 @@ def generate_html_report(results: Dict[str, Any]) -> str:
             <div class="test-section">
                 <h3>Unit Test Details</h3>
 """
-    
+
     # Add unit test service details
-    for service_name, service_data in results['unit']['services'].items():
+    for service_name, service_data in results["unit"]["services"].items():
         html += f"""
                 <div class="service-results">
                     <h4>{service_name}</h4>
@@ -329,7 +389,7 @@ def generate_html_report(results: Dict[str, Any]) -> str:
                     </div>
                 </div>
 """
-    
+
     html += """
             </div>
         </div>
@@ -337,44 +397,59 @@ def generate_html_report(results: Dict[str, Any]) -> str:
 </body>
 </html>
 """
-    
+
     return html
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate combined test report')
-    parser.add_argument('--input-dir', '-i', type=Path, default=Path('.'),
-                       help='Directory containing test result artifacts')
-    parser.add_argument('--output-html', '-o', type=Path, default=Path('test-report.html'),
-                       help='Output HTML report file')
-    parser.add_argument('--output-json', '-j', type=Path, default=Path('test-summary.json'),
-                       help='Output JSON summary file')
-    
+    parser = argparse.ArgumentParser(description="Generate combined test report")
+    parser.add_argument(
+        "--input-dir",
+        "-i",
+        type=Path,
+        default=Path("."),
+        help="Directory containing test result artifacts",
+    )
+    parser.add_argument(
+        "--output-html",
+        "-o",
+        type=Path,
+        default=Path("test-report.html"),
+        help="Output HTML report file",
+    )
+    parser.add_argument(
+        "--output-json",
+        "-j",
+        type=Path,
+        default=Path("test-summary.json"),
+        help="Output JSON summary file",
+    )
+
     args = parser.parse_args()
-    
+
     # Collect test results
     print("🔍 Collecting test results...")
     results = collect_test_results(args.input_dir)
-    
+
     # Generate HTML report
     print("📝 Generating HTML report...")
     html_content = generate_html_report(results)
-    
-    with open(args.output_html, 'w', encoding='utf-8') as f:
+
+    with open(args.output_html, "w", encoding="utf-8") as f:
         f.write(html_content)
-    
+
     # Save JSON summary
     print("💾 Saving JSON summary...")
-    with open(args.output_json, 'w', encoding='utf-8') as f:
+    with open(args.output_json, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
-    
+
     print(f"✅ Reports generated:")
     print(f"  HTML: {args.output_html}")
     print(f"  JSON: {args.output_json}")
-    
+
     # Exit with appropriate code
-    sys.exit(0 if results['overall']['status'] == 'passed' else 1)
+    sys.exit(0 if results["overall"]["status"] == "passed" else 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -1,9 +1,11 @@
-from sqlalchemy import Column, String, DateTime, ForeignKey
+import uuid
+from datetime import datetime
+
+from core.database import Base
+from sqlalchemy import Column, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-import uuid
-from core.database import Base
-from datetime import datetime
+
 
 class Session(Base):
     __tablename__ = "sessions"

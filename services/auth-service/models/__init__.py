@@ -1,7 +1,7 @@
 # models package
 
-from .associations import user_roles, role_permissions
-from .user import *
-from .role import *
+from .associations import role_permissions, user_roles
 from .permission import *
+from .role import *
 from .session import *
+from .user import *

@@ -1,20 +1,21 @@
+import logging
+import os
+import sys
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import logging
-import sys
-import os
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from api.routes import router
 from core.config import settings
 from core.database import init_db
-from api.routes import router
 
 # Configure logging
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ app = FastAPI(
     description="Service for managing notifications and alerts",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
 
 # Add CORS middleware
@@ -39,10 +40,12 @@ app.add_middleware(
 # Include routers
 app.include_router(router, prefix="/api/v1")
 
+
 # Health check endpoint
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "notification", "version": "1.0.0"}
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -50,5 +53,12 @@ async def startup_event():
     await init_db()
     logger.info("Notification Service started successfully")
 
+
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8004, reload=True, log_level=settings.LOG_LEVEL.lower())
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8004,
+        reload=True,
+        log_level=settings.LOG_LEVEL.lower(),
+    )

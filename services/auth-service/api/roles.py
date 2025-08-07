@@ -1,12 +1,15 @@
 """
 Roles API endpoints (placeholder for RBAC extension)
 """
+
 import logging
+
 from fastapi import APIRouter, HTTPException, status
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
 
 @router.get("/")
 async def list_roles():
@@ -14,8 +17,9 @@ async def list_roles():
     # TODO: Implement role listing
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Roles management not yet implemented"
+        detail="Roles management not yet implemented",
     )
+
 
 @router.post("/")
 async def create_role():
@@ -23,8 +27,9 @@ async def create_role():
     # TODO: Implement role creation
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Roles management not yet implemented"
+        detail="Roles management not yet implemented",
     )
+
 
 @router.get("/{role_id}")
 async def get_role(role_id: str):
@@ -32,8 +37,9 @@ async def get_role(role_id: str):
     # TODO: Implement role retrieval
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Roles management not yet implemented"
+        detail="Roles management not yet implemented",
     )
+
 
 @router.put("/{role_id}")
 async def update_role(role_id: str):
@@ -41,8 +47,9 @@ async def update_role(role_id: str):
     # TODO: Implement role update
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Roles management not yet implemented"
+        detail="Roles management not yet implemented",
     )
+
 
 @router.delete("/{role_id}")
 async def delete_role(role_id: str):
@@ -50,5 +57,5 @@ async def delete_role(role_id: str):
     # TODO: Implement role deletion
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Roles management not yet implemented"
+        detail="Roles management not yet implemented",
     )

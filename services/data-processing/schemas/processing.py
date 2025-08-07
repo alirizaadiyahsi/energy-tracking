@@ -1,15 +1,18 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional, Dict, Any
 from datetime import datetime
+from typing import Any, Dict, Optional
+
+from pydantic import BaseModel, ConfigDict
+
 
 class ProcessingJobCreate(BaseModel):
     job_type: str
     parameters: Optional[Dict[str, Any]] = None
     created_by: Optional[str] = None
 
+
 class ProcessingJobResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     job_type: str
     status: str
@@ -21,9 +24,10 @@ class ProcessingJobResponse(BaseModel):
     completed_at: Optional[datetime]
     created_by: Optional[str]
 
+
 class EnergyMetricsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     device_id: str
     metric_type: str
@@ -40,6 +44,7 @@ class EnergyMetricsResponse(BaseModel):
     data_points_count: int
     created_at: datetime
     updated_at: Optional[datetime]
+
 
 class ProcessingStatsResponse(BaseModel):
     total_jobs: int

@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, Float
-from sqlalchemy.sql import func
 from core.database import Base
+from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text
+from sqlalchemy.sql import func
 
 
 class ProcessingJob(Base):
