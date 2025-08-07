@@ -82,11 +82,12 @@ async def health_check():
     """Health check endpoint"""
     from core.database import get_db
     from core.cache import get_redis
+    from sqlalchemy import text
     
     try:
         # Check database connection
         async for db in get_db():
-            await db.execute("SELECT 1")
+            await db.execute(text("SELECT 1"))
             break
         
         # Check Redis connection
