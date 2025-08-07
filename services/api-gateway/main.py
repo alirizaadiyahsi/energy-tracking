@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 import httpx
 from typing import Dict, Any
 import time
+from sqlalchemy import text
 
 from core.config import settings
 from core.database import init_db
@@ -87,7 +88,7 @@ async def health_check():
         
         # Check database connection
         async for db in get_db():
-            await db.execute("SELECT 1")
+            await db.execute(text("SELECT 1"))
             break
         
         # Check auth service connectivity

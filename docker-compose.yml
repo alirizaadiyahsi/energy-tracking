@@ -74,15 +74,15 @@ services:
       - "1883:1883"
       - "9001:9001"
     volumes:
-      - ./infrastructure/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-      - ./infrastructure/mosquitto/passwd:/mosquitto/config/passwd:ro
+      - ./infrastructure/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./infrastructure/mosquitto/passwd:/mosquitto/config/passwd
       - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
     networks:
       - energy-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mosquitto_pub", "-h", "localhost", "-t", "test", "-m", "test"]
+      test: ["CMD", "nc", "-z", "localhost", "1883"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -101,7 +101,7 @@ services:
       - JWT_ALGORITHM=HS256
       - JWT_EXPIRE_MINUTES=30
       - JWT_REFRESH_EXPIRE_DAYS=7
-      - CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:8000
+      - CORS_ORIGINS=["http://localhost:3000","http://localhost:3001","http://localhost:8000"]
       - LOG_LEVEL=INFO
       - BCRYPT_ROUNDS=12
       - SESSION_TIMEOUT_HOURS=24
@@ -146,7 +146,7 @@ services:
       - AUTH_SERVICE_URL=http://auth-service:8005
       - SECRET_KEY=your-secret-key-change-in-production
       - JWT_SECRET_KEY=your-jwt-secret-key-change-in-production
-      - CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+      - CORS_ORIGINS=["http://localhost:3000","http://localhost:3001"]
       - LOG_LEVEL=INFO
     ports:
       - "8000:8000"
