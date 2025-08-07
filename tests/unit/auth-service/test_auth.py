@@ -319,8 +319,9 @@ class TestAuthAPI:
 
         mock_auth_service.create_user.return_value = mock_user
 
-        with patch("api.auth.get_db", return_value=mock_session), patch(
-            "api.auth.AuthService", return_value=mock_auth_service
+        with (
+            patch("api.auth.get_db", return_value=mock_session),
+            patch("api.auth.AuthService", return_value=mock_auth_service),
         ):
 
             result = await register(user_create, mock_session)
@@ -349,9 +350,11 @@ class TestAuthAPI:
 
         mock_auth_service.authenticate_user.return_value = mock_user
 
-        with patch("api.auth.get_db", return_value=mock_session), patch(
-            "api.auth.AuthService", return_value=mock_auth_service
-        ), patch("api.auth.create_access_token", return_value="mock_token"):
+        with (
+            patch("api.auth.get_db", return_value=mock_session),
+            patch("api.auth.AuthService", return_value=mock_auth_service),
+            patch("api.auth.create_access_token", return_value="mock_token"),
+        ):
 
             result = await login(user_login, mock_session)
 
