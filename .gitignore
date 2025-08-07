@@ -161,7 +161,6 @@ celerybeat.pid
 # Machine Learning models
 *.pkl
 *.joblib
-models/
 
 # Data files
 data/

@@ -7,6 +7,12 @@ class Settings(BaseSettings):
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:postgres123@localhost:5432/energy_tracking")
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/7")
     
+    # Redis configuration
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
+    REDIS_PASSWORD: str = os.getenv("REDIS_PASSWORD", "")
+    REDIS_DB_CELERY: int = int(os.getenv("REDIS_DB_CELERY", "8"))
+    
     # Auth Service
     AUTH_SERVICE_URL: str = os.getenv("AUTH_SERVICE_URL", "http://localhost:8005")
     
