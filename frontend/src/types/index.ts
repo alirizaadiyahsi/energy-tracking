@@ -20,7 +20,7 @@ export interface AuthState {
 export interface LoginRequest {
   email: string;
   password: string;
-  rememberMe?: boolean;
+  remember_me?: boolean;
 }
 
 export interface RegisterRequest {
@@ -40,6 +40,23 @@ export interface RegisterResponse {
   user: User;
   accessToken: string;
   refreshToken: string;
+}
+
+// Auth service response interfaces (match backend format)
+export interface AuthServiceLoginResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  user_id: string;
+  email: string;
+  session_id: string;
+}
+
+export interface AuthServiceRegisterResponse {
+  message: string;
+  user_id: string;
+  email: string;
 }
 
 export interface Device {

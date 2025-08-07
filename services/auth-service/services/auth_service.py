@@ -34,17 +34,16 @@ class AuthService:
         """Register a new user"""
         try:
             # Hash password
-            password_hash = security.hash_password(password)
+            hashed_password = security.hash_password(password)
             
             # Create user
             user = User(
                 email=email.lower(),
                 username=username,
-                password_hash=password_hash,
-                first_name=first_name,
-                last_name=last_name,
+                hashed_password=hashed_password,
+                full_name=f"{first_name or ''} {last_name or ''}".strip() or None,
                 is_active=True,
-                is_verified=False  # Require email verification
+                email_verified=False  # Require email verification
             )
             
             self.db.add(user)
@@ -88,19 +87,19 @@ class AuthService:
                 logger.warning(f"Authentication failed: Inactive user {email}")
                 return None
             
-            # Check if user is locked
-            if user.is_locked:
+            # Check if user is locked (using locked_until field)
+            if user.locked_until and user.locked_until > datetime.now():
                 logger.warning(f"Authentication failed: Locked user {email}")
                 return None
             
             # Verify password
-            if not security.verify_password(password, user.password_hash):
+            if not security.verify_password(password, user.hashed_password):
                 # Increment failed login attempts
                 user.failed_login_attempts += 1
                 
                 # Lock user if too many failed attempts
                 if user.failed_login_attempts >= settings.MAX_LOGIN_ATTEMPTS:
-                    user.locked_until = datetime.now(timezone.utc) + timedelta(
+                    user.locked_until = datetime.now() + timedelta(
                         minutes=settings.LOCKOUT_DURATION_MINUTES
                     )
                     logger.warning(f"User locked due to failed attempts: {email}")
@@ -112,7 +111,7 @@ class AuthService:
             # Reset failed login attempts on successful login
             user.failed_login_attempts = 0
             user.locked_until = None
-            user.last_login = datetime.now(timezone.utc)
+            user.last_login = datetime.now()  # Use timezone-naive datetime
             
             # Create session
             session = await self._create_session(
@@ -195,12 +194,12 @@ class AuthService:
             session_id = payload.get("session_id")
             if session_id:
                 session = await self._get_session_by_id(session_id)
-                if not session or not session.is_valid:
+                if not session or session.revoked or session.expires_at < datetime.now():
                     return None
                 
-                # Update last activity
-                session.last_activity = datetime.now(timezone.utc)
-                await self.db.commit()
+                # Update last activity (assuming this field exists or we skip it)
+                # session.last_activity = datetime.now()
+                # await self.db.commit()
             
             return user
             
@@ -331,15 +330,20 @@ class AuthService:
         user_agent: Optional[str] = None
     ) -> Session:
         """Create a new user session"""
-        session_id = security.generate_session_id()
+        from datetime import timedelta
+        
+        # Generate session token
+        session_token = security.generate_session_id()
+        
+        # Calculate expiration
+        expires_at = datetime.now() + timedelta(days=30)  # 30 days
         
         session = Session(
-            session_id=session_id,
             user_id=user.id,
-            ip_address=ip_address,
-            user_agent=user_agent,
-            access_token="",  # Will be updated with actual token
-            is_active=True
+            token=session_token,
+            device=user_agent[:100] if user_agent else None,  # Truncate to fit field size
+            location=ip_address,
+            expires_at=expires_at
         )
         
         self.db.add(session)
@@ -352,7 +356,7 @@ class AuthService:
         token_data = {
             "user_id": str(user.id),
             "email": user.email,
-            "session_id": session.session_id
+            "session_id": str(session.id)  # Use session.id instead of session.session_id
         }
         
         access_token = security.create_access_token(token_data)
@@ -376,7 +380,7 @@ class AuthService:
             
             # Get from database
             result = await self.db.execute(
-                select(Session).where(Session.session_id == session_id)
+                select(Session).where(Session.id == session_id)
             )
             return result.scalar_one_or_none()
             

@@ -39,7 +39,11 @@ const Login: React.FC = () => {
 
   const onSubmit = async (data: LoginForm) => {
     try {
-      await login(data);
+      await login({
+        email: data.email,
+        password: data.password,
+        remember_me: data.rememberMe,
+      });
       navigate('/dashboard');
     } catch (error) {
       // Error is handled in the AuthContext

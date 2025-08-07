@@ -7,9 +7,10 @@ from datetime import datetime
 
 class Session(Base):
     __tablename__ = "sessions"
+    __table_args__ = {"schema": "auth"}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("auth.users.id"), nullable=False)
     token = Column(String(255), nullable=False)
     device = Column(String(100), nullable=True)
     location = Column(String(100), nullable=True)

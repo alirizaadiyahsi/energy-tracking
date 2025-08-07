@@ -102,7 +102,7 @@ async def login(
             expires_in=tokens["expires_in"],
             user_id=str(user.id),
             email=user.email,
-            session_id=session.session_id
+            session_id=str(session.id)  # Use session.id instead of session.session_id
         )
         
     except HTTPException:
@@ -281,10 +281,14 @@ async def get_current_user(
             "id": str(user.id),
             "email": user.email,
             "username": user.username,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "is_verified": user.is_verified,
+            "full_name": user.full_name,
+            "phone": user.phone,
+            "department": user.department,
+            "position": user.position,
+            "status": user.status,
             "is_active": user.is_active,
+            "is_superuser": user.is_superuser,
+            "email_verified": user.email_verified,
             "created_at": user.created_at.isoformat(),
             "last_login": user.last_login.isoformat() if user.last_login else None
         }

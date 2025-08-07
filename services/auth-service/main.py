@@ -39,6 +39,15 @@ async def lifespan(app: FastAPI):
     await init_redis()
     logger.info("Redis connection initialized")
     
+    # Run database seeding
+    try:
+        from core.seeder import run_seeds
+        await run_seeds()
+        logger.info("Database seeding completed")
+    except Exception as e:
+        logger.error(f"Database seeding failed: {e}")
+        # Don't fail startup if seeding fails, just log the error
+    
     yield
     
     logger.info("Shutting down Authentication Service...")
