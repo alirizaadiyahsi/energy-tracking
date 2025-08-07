@@ -221,24 +221,177 @@ POST /api/v1/analytics/forecast       # Generate forecasts
 
 ## 🧪 Testing
 
-### Backend Testing
-```bash
-# Run unit tests
-pytest services/*/tests/
+This project includes a comprehensive testing framework with multiple test types and automated execution capabilities.
 
-# Run integration tests
-pytest tests/integration/
+### Test Structure
+```
+tests/
+├── unit/                    # Unit tests for individual components
+│   ├── auth_service/        # Authentication service tests
+│   ├── data_processing/     # Data processing tests
+│   └── analytics/           # Analytics service tests
+├── integration/             # Integration tests for service interactions
+│   ├── test_auth_flows.py   # Authentication integration tests
+│   └── test_data_pipeline.py # Data pipeline integration tests
+├── performance/             # Performance and load testing
+│   ├── locustfile.py        # Locust performance tests
+│   └── run_performance_tests.py # Performance test runner
+├── e2e/                     # End-to-end tests
+│   ├── test_complete_flows.py # API workflow tests
+│   └── test_browser_flows.py  # Browser automation tests
+├── conftest.py             # Shared test fixtures
+├── pytest.ini             # Pytest configuration
+├── test_config.ini         # Test environment configuration
+├── run_tests.py            # Individual test runner
+├── run_all_tests.py        # Master test runner
+└── README.md               # Testing documentation
+```
+
+### Quick Testing Commands
+
+#### Run All Tests
+```bash
+# Run comprehensive test suite
+python tests/run_all_tests.py
+
+# Quick tests (unit + integration + security)
+python tests/run_all_tests.py --quick
+
+# Full test suite (includes performance and E2E)
+python tests/run_all_tests.py --full
+
+# Run with parallel execution
+python tests/run_all_tests.py --parallel
+```
+
+#### Run Specific Test Types
+```bash
+# Unit tests only
+python tests/run_all_tests.py --include unit
+
+# Integration tests
+python tests/run_all_tests.py --include integration
+
+# Performance tests
+python tests/performance/run_performance_tests.py --scenario medium
+
+# E2E API tests
+python tests/e2e/test_complete_flows.py
+
+# E2E Browser tests (requires Chrome/Selenium)
+python tests/e2e/test_browser_flows.py --headless
+```
+
+#### Individual Service Testing
+```bash
+# Test specific service
+python tests/run_tests.py --service auth-service
+python tests/run_tests.py --service data-processing
+python tests/run_tests.py --service analytics
 
 # Run with coverage
-pytest --cov=services/ tests/
+python tests/run_tests.py --coverage --service auth-service
 ```
+
+### Test Types
+
+#### 1. Unit Tests
+- **Coverage Target**: 90% for critical components, 80% overall
+- **Focus**: Individual functions, classes, and modules
+- **Mocking**: Comprehensive mocking of external dependencies
+- **Security**: Authentication, authorization, input validation
+
+#### 2. Integration Tests
+- **Database Integration**: Real PostgreSQL and Redis instances
+- **Service Communication**: API interactions between services
+- **Authentication Flows**: Complete JWT authentication workflows
+- **Data Pipeline**: End-to-end data processing validation
+
+#### 3. Performance Tests
+- **Load Testing**: Various user load scenarios (light, medium, heavy, stress)
+- **Stress Testing**: System breaking point identification
+- **Rate Limiting**: API rate limiting validation
+- **Response Times**: Performance threshold monitoring
+
+#### 4. End-to-End Tests
+- **API Workflows**: Complete user journey testing via REST APIs
+- **Browser Automation**: Frontend workflow testing with Selenium
+- **System Integration**: Full stack functionality validation
+- **User Scenarios**: Real-world usage pattern simulation
+
+### Test Configuration
+
+#### Prerequisites Installation
+```bash
+# Install test dependencies
+pip install -r tests/test-requirements.txt
+
+# For browser tests (optional)
+pip install selenium
+# Download ChromeDriver or install via package manager
+```
+
+#### Environment Setup
+```bash
+# Copy test configuration
+cp tests/test_config.ini.example tests/test_config.ini
+
+# Edit configuration for your environment
+# Configure database URLs, API endpoints, etc.
+```
+
+#### Docker Test Environment
+```bash
+# Start test environment
+docker-compose -f docker-compose.test.yml up -d
+
+# Run tests against containerized services
+python tests/run_all_tests.py --host http://localhost:8000
+```
+
+### Test Reports and Monitoring
+
+#### Coverage Reports
+```bash
+# Generate HTML coverage report
+python tests/run_tests.py --coverage --html
+
+# View coverage report
+open tests/results/coverage_html/index.html
+```
+
+#### Performance Reports
+```bash
+# Performance test results
+ls tests/performance/results/
+# - HTML reports with detailed metrics
+# - CSV data for analysis
+# - Performance trend tracking
+```
+
+#### Continuous Integration
+```bash
+# CI-friendly test execution
+python tests/run_all_tests.py --fail-fast --parallel --include unit integration security
+
+# Generate CI reports
+python tests/run_all_tests.py --junit-xml --coverage-xml
+```
+
+### Quality Gates
+
+- **Minimum Coverage**: 80% overall, 90% for critical components
+- **Performance**: Max 2s response time, <5% error rate
+- **Security**: All authentication and authorization tests must pass
+- **Code Quality**: Linting and formatting checks included
 
 ### Frontend Testing
 ```bash
 cd frontend
-npm test                    # Unit tests
-npm run test:e2e           # End-to-end tests
+npm test                    # Unit tests with Jest
+npm run test:e2e           # Cypress E2E tests
 npm run test:coverage      # Coverage report
+npm run test:watch         # Watch mode for development
 ```
 
 ## 📚 API Documentation
