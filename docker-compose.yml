@@ -353,6 +353,11 @@ services:
     networks:
       - energy-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "celery", "-A", "tasks.email_tasks", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # Worker Services
   celery-worker:
