@@ -1,0 +1,289 @@
+groups:
+  - name: security.rules
+    rules:
+      # Authentication Security Alerts
+      - alert: HighFailedLoginRate
+        expr: rate(auth_login_failures_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          category: security
+          service: auth
+        annotations:
+          summary: "High failed login rate detected"
+          description: "Failed login rate is {{ $value }} per second, which is above the threshold of 10 per second"
+          runbook_url: "https://wiki.company.com/runbooks/high-failed-login-rate"
+
+      - alert: CriticalFailedLoginRate
+        expr: rate(auth_login_failures_total[5m]) > 50
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+          service: auth
+        annotations:
+          summary: "Critical failed login rate detected"
+          description: "Failed login rate is {{ $value }} per second, indicating a potential brute force attack"
+          runbook_url: "https://wiki.company.com/runbooks/critical-failed-login-rate"
+
+      - alert: LoginSuccessRateLow
+        expr: (rate(auth_login_success_total[5m]) / (rate(auth_login_success_total[5m]) + rate(auth_login_failures_total[5m]))) * 100 < 50
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          service: auth
+        annotations:
+          summary: "Login success rate is critically low"
+          description: "Login success rate is {{ $value }}%, indicating potential security issues"
+
+      # Rate Limiting Alerts
+      - alert: HighRateLimitingActivity
+        expr: rate(security_rate_limited_total[5m]) > 20
+        for: 3m
+        labels:
+          severity: warning
+          category: security
+          service: api-gateway
+        annotations:
+          summary: "High rate limiting activity detected"
+          description: "Rate limiting is blocking {{ $value }} requests per second"
+
+      - alert: CriticalRateLimitingActivity
+        expr: rate(security_rate_limited_total[5m]) > 100
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+          service: api-gateway
+        annotations:
+          summary: "Critical rate limiting activity detected"
+          description: "Rate limiting is blocking {{ $value }} requests per second, indicating potential DDoS attack"
+
+      # Threat Detection Alerts
+      - alert: ThreatDetectionTriggered
+        expr: rate(security_threat_events_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: warning
+          category: security
+          service: threat-detection
+        annotations:
+          summary: "Threat detection system triggered"
+          description: "{{ $value }} threat events detected per second"
+
+      - alert: HighThreatScore
+        expr: security_threat_score > 80
+        for: 0m
+        labels:
+          severity: critical
+          category: security
+          service: threat-detection
+        annotations:
+          summary: "High threat score detected"
+          description: "Current threat score is {{ $value }}, indicating high risk activity"
+
+      - alert: IPBlockingTriggered
+        expr: rate(security_blocked_ips_total[5m]) > 2
+        for: 2m
+        labels:
+          severity: warning
+          category: security
+          service: threat-detection
+        annotations:
+          summary: "IP blocking system active"
+          description: "{{ $value }} IPs blocked per second"
+
+      # Session Security Alerts
+      - alert: UnusualSessionActivity
+        expr: rate(auth_sessions_created_total[5m]) > 50
+        for: 3m
+        labels:
+          severity: warning
+          category: security
+          service: auth
+        annotations:
+          summary: "Unusual session creation activity"
+          description: "{{ $value }} sessions created per second, which is above normal"
+
+      - alert: SessionHijackingPossible
+        expr: rate(auth_session_hijack_attempts_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          category: security
+          service: auth
+        annotations:
+          summary: "Possible session hijacking detected"
+          description: "{{ $value }} session hijacking attempts detected"
+
+      # Input Validation Alerts
+      - alert: HighValidationFailures
+        expr: rate(security_validation_failures_total[5m]) > 30
+        for: 2m
+        labels:
+          severity: warning
+          category: security
+          service: validation
+        annotations:
+          summary: "High input validation failure rate"
+          description: "{{ $value }} validation failures per second detected"
+
+      - alert: SQLInjectionAttempts
+        expr: rate(security_sql_injection_attempts_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          category: security
+          service: validation
+        annotations:
+          summary: "SQL injection attempts detected"
+          description: "{{ $value }} SQL injection attempts per second detected"
+
+      - alert: XSSAttempts
+        expr: rate(security_xss_attempts_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          category: security
+          service: validation
+        annotations:
+          summary: "XSS attempts detected"
+          description: "{{ $value }} XSS attempts per second detected"
+
+      # Service Security Alerts
+      - alert: UnauthorizedAPIAccess
+        expr: rate(http_requests_total{status=~"401|403"}[5m]) > 20
+        for: 2m
+        labels:
+          severity: warning
+          category: security
+          service: api
+        annotations:
+          summary: "High unauthorized API access attempts"
+          description: "{{ $value }} unauthorized API requests per second"
+
+      - alert: SecurityHeadersMissing
+        expr: security_headers_missing_total > 0
+        for: 0m
+        labels:
+          severity: warning
+          category: security
+          service: api-gateway
+        annotations:
+          summary: "Security headers missing from responses"
+          description: "{{ $value }} responses sent without proper security headers"
+
+      # Data Security Alerts
+      - alert: SensitiveDataExposure
+        expr: rate(security_sensitive_data_exposure_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          category: security
+          service: data-processing
+        annotations:
+          summary: "Sensitive data exposure detected"
+          description: "{{ $value }} sensitive data exposure events detected"
+
+      - alert: UnencryptedDataTransmission
+        expr: rate(security_unencrypted_transmission_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          category: security
+          service: api-gateway
+        annotations:
+          summary: "Unencrypted data transmission detected"
+          description: "{{ $value }} unencrypted data transmissions detected"
+
+      # Compliance Alerts
+      - alert: AuditLogFailures
+        expr: rate(security_audit_log_failures_total[5m]) > 1
+        for: 1m
+        labels:
+          severity: warning
+          category: security
+          service: audit
+        annotations:
+          summary: "Audit log failures detected"
+          description: "{{ $value }} audit log failures per second"
+
+      - alert: ComplianceViolation
+        expr: rate(security_compliance_violations_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          category: security
+          service: compliance
+        annotations:
+          summary: "Compliance violation detected"
+          description: "{{ $value }} compliance violations detected"
+
+      # Infrastructure Security Alerts
+      - alert: SecurityServiceDown
+        expr: up{job=~".*security.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+          service: infrastructure
+        annotations:
+          summary: "Security service is down"
+          description: "Security service {{ $labels.instance }} is down"
+
+      - alert: SecurityServiceHighCPU
+        expr: rate(process_cpu_seconds_total{job=~".*security.*"}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          service: infrastructure
+        annotations:
+          summary: "Security service high CPU usage"
+          description: "Security service {{ $labels.instance }} CPU usage is {{ $value }}%"
+
+      - alert: SecurityServiceHighMemory
+        expr: process_resident_memory_bytes{job=~".*security.*"} / process_virtual_memory_max_bytes{job=~".*security.*"} * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          service: infrastructure
+        annotations:
+          summary: "Security service high memory usage"
+          description: "Security service {{ $labels.instance }} memory usage is {{ $value }}%"
+
+      # Network Security Alerts
+      - alert: SuspiciousNetworkActivity
+        expr: rate(security_suspicious_network_activity_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          category: security
+          service: network
+        annotations:
+          summary: "Suspicious network activity detected"
+          description: "{{ $value }} suspicious network events per second"
+
+      - alert: PortScanDetected
+        expr: rate(security_port_scan_attempts_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: warning
+          category: security
+          service: network
+        annotations:
+          summary: "Port scan activity detected"
+          description: "{{ $value }} port scan attempts per second"
+
+      - alert: UnauthorizedNetworkAccess
+        expr: rate(security_unauthorized_network_access_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          category: security
+          service: network
+        annotations:
+          summary: "Unauthorized network access detected"
+          description: "{{ $value }} unauthorized network access attempts"

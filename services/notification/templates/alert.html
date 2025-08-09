@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Alert</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .alert-high { border-left: 5px solid #dc3545; }
+        .alert-medium { border-left: 5px solid #ffc107; }
+        .alert-low { border-left: 5px solid #28a745; }
+        .content {
+            padding: 20px 0;
+        }
+        .device-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .button {
+            display: inline-block;
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header alert-{{ priority }}">
+        <h2>⚡ Energy Alert - {{ alert_type|title }}</h2>
+        <p><strong>Device:</strong> {{ device_name }} ({{ device_id }})</p>
+        <p><strong>Time:</strong> {{ timestamp }}</p>
+        <p><strong>Priority:</strong> {{ priority|title }}</p>
+    </div>
+
+    <div class="content">
+        <h3>Alert Details</h3>
+        <p>{{ message }}</p>
+
+        {% if device_info %}
+        <div class="device-info">
+            <h4>Device Information</h4>
+            <ul>
+                {% for key, value in device_info.items() %}
+                <li><strong>{{ key|title }}:</strong> {{ value }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if readings %}
+        <div class="device-info">
+            <h4>Current Readings</h4>
+            <ul>
+                <li><strong>Power:</strong> {{ readings.power }} W</li>
+                <li><strong>Voltage:</strong> {{ readings.voltage }} V</li>
+                <li><strong>Current:</strong> {{ readings.current }} A</li>
+                {% if readings.energy %}
+                <li><strong>Energy:</strong> {{ readings.energy }} Wh</li>
+                {% endif %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if recommendations %}
+        <h4>Recommendations</h4>
+        <ul>
+            {% for recommendation in recommendations %}
+            <li>{{ recommendation }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if dashboard_url %}
+        <p>
+            <a href="{{ dashboard_url }}" class="button">View Dashboard</a>
+        </p>
+        {% endif %}
+    </div>
+
+    <div class="footer">
+        <p>This is an automated alert from your Energy Tracking System.</p>
+        <p>If you believe this alert was sent in error, please contact your system administrator.</p>
+    </div>
+</body>
+</html>

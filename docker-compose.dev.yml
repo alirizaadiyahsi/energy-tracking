@@ -1,0 +1,364 @@
+version: '3.8'
+
+services:
+  # Database Services
+  postgres:
+    image: postgres:15-alpine
+    container_name: energy-postgres-dev
+    environment:
+      POSTGRES_DB: energy_tracking_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - energy-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: energy-influxdb-dev
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: admin123456
+      DOCKER_INFLUXDB_INIT_ORG: energy-org
+      DOCKER_INFLUXDB_INIT_BUCKET: iot-data-dev
+      DOCKER_INFLUXDB_INIT_RETENTION: 4w
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: energy-token-dev-12345678901234567890
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_dev_data:/var/lib/influxdb2
+      - influxdb_dev_config:/etc/influxdb2
+    networks:
+      - energy-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: energy-redis-dev
+    command: redis-server --appendonly yes --requirepass redis123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - energy-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Message Broker
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: energy-mosquitto-dev
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./infrastructure/mosquitto/mosquitto.dev.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_dev_data:/mosquitto/data
+      - mosquitto_dev_logs:/mosquitto/log
+    networks:
+      - energy-dev-network
+    restart: unless-stopped
+
+  # Backend Services (Development mode with hot reload)
+  auth-service:
+    build: 
+      context: ./services/auth-service
+      dockerfile: Dockerfile.dev
+    container_name: energy-auth-service-dev
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking_dev
+      - REDIS_URL=redis://:redis123@redis:6379/0
+      - SECRET_KEY=dev-secret-key-not-for-production
+      - JWT_SECRET_KEY=dev-jwt-secret-key-not-for-production
+      - JWT_ALGORITHM=HS256
+      - JWT_EXPIRE_MINUTES=60
+      - JWT_REFRESH_EXPIRE_DAYS=30
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:8000
+      - LOG_LEVEL=DEBUG
+      - ENVIRONMENT=development
+      - RELOAD=true
+      - BCRYPT_ROUNDS=4
+      - SESSION_TIMEOUT_HOURS=48
+      - MAX_LOGIN_ATTEMPTS=10
+      - LOCKOUT_DURATION_MINUTES=5
+      - EMAIL_VERIFICATION_REQUIRED=false
+    ports:
+      - "8005:8005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/auth-service:/app
+      - auth_service_cache:/app/.cache
+    networks:
+      - energy-dev-network
+    restart: unless-stopped
+    develop:
+      watch:
+        - action: sync
+          path: ./services/auth-service
+          target: /app
+        - action: rebuild
+          path: ./services/auth-service/requirements.txt
+
+  api-gateway:
+    build: 
+      context: ./services/api-gateway
+      dockerfile: Dockerfile.dev
+    container_name: energy-api-gateway-dev
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking_dev
+      - REDIS_URL=redis://:redis123@redis:6379/1
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=energy-token-dev-12345678901234567890
+      - INFLUXDB_ORG=energy-org
+      - INFLUXDB_BUCKET=iot-data-dev
+      - AUTH_SERVICE_URL=http://auth-service:8005
+      - SECRET_KEY=dev-secret-key-not-for-production
+      - JWT_SECRET_KEY=dev-jwt-secret-key-not-for-production
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+      - LOG_LEVEL=DEBUG
+      - ENVIRONMENT=development
+      - RELOAD=true
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    volumes:
+      - ./services/api-gateway:/app
+      - api_gateway_cache:/app/.cache
+    networks:
+      - energy-dev-network
+    restart: unless-stopped
+    develop:
+      watch:
+        - action: sync
+          path: ./services/api-gateway
+          target: /app
+        - action: rebuild
+          path: ./services/api-gateway/requirements.txt
+
+  data-ingestion:
+    build: 
+      context: ./services/data-ingestion
+      dockerfile: Dockerfile.dev
+    container_name: energy-data-ingestion-dev
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/energy_tracking_dev
+      - REDIS_URL=redis://:redis123@redis:6379/2
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=energy-token-dev-12345678901234567890
+      - INFLUXDB_ORG=energy-org
+      - INFLUXDB_BUCKET=iot-data-dev
+      - AUTH_SERVICE_URL=http://auth-service:8005
+      - MQTT_BROKER=mosquitto
+      - MQTT_PORT=1883
+      - LOG_LEVEL=DEBUG
+      - ENVIRONMENT=development
+      - RELOAD=true
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    volumes:
+      - ./services/data-ingestion:/app
+      - data_ingestion_cache:/app/.cache
+    networks:
+      - energy-dev-network
+    restart: unless-stopped
+    develop:
+      watch:
+        - action: sync
+          path: ./services/data-ingestion
+          target: /app
+        - action: rebuild
+          path: ./services/data-ingestion/requirements.txt
+
+  # Frontend (Development mode with hot reload)
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: energy-frontend-dev
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_AUTH_URL=http://localhost:8005
+      - REACT_APP_WS_URL=ws://localhost:8000/ws
+      - REACT_APP_ENV=development
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+      - GENERATE_SOURCEMAP=true
+      - FAST_REFRESH=true
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - frontend_cache:/app/.cache
+    networks:
+      - energy-dev-network
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend/src
+          target: /app/src
+        - action: sync
+          path: ./frontend/public
+          target: /app/public
+        - action: rebuild
+          path: ./frontend/package.json
+
+  # Development Tools
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: energy-grafana-dev
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=true
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+      - GF_LOG_LEVEL=debug
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_dev_data:/var/lib/grafana
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - energy-dev-network
+    restart: unless-stopped
+
+  # Database Admin Tools
+  pgadmin:
+    image: dpage/pgadmin4:7
+    container_name: energy-pgadmin-dev
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@energy-tracking.dev
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_dev_data:/var/lib/pgadmin
+    networks:
+      - energy-dev-network
+    restart: unless-stopped
+
+  # Redis Admin
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: energy-redis-commander-dev
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:redis123
+    ports:
+      - "8081:8081"
+    networks:
+      - energy-dev-network
+    restart: unless-stopped
+
+  # MQTT Client for testing
+  mqtt-explorer:
+    image: smeagol74/mqtt-explorer
+    container_name: energy-mqtt-explorer-dev
+    ports:
+      - "4000:4000"
+    networks:
+      - energy-dev-network
+    restart: unless-stopped
+
+  # Data Generator for Development
+  data-generator:
+    build: 
+      context: ./scripts/data-generator
+      dockerfile: Dockerfile
+    container_name: energy-data-generator-dev
+    environment:
+      - MQTT_BROKER=mosquitto
+      - MQTT_PORT=1883
+      - DEVICE_COUNT=10
+      - INTERVAL_SECONDS=5
+      - LOG_LEVEL=INFO
+    depends_on:
+      - mosquitto
+      - data-ingestion
+    networks:
+      - energy-dev-network
+    restart: unless-stopped
+    profiles:
+      - tools
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  influxdb_dev_data:
+    driver: local
+  influxdb_dev_config:
+    driver: local
+  redis_dev_data:
+    driver: local
+  mosquitto_dev_data:
+    driver: local
+  mosquitto_dev_logs:
+    driver: local
+  grafana_dev_data:
+    driver: local
+  pgadmin_dev_data:
+    driver: local
+  auth_service_cache:
+    driver: local
+  api_gateway_cache:
+    driver: local
+  data_ingestion_cache:
+    driver: local
+  frontend_cache:
+    driver: local
+
+networks:
+  energy-dev-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

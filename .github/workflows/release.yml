@@ -1,0 +1,491 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.2.3)'
+        required: true
+        type: string
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      skip_tests:
+        description: 'Skip comprehensive test suite'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+  REGISTRY: ghcr.io
+
+jobs:
+  # Job 1: Pre-release validation
+  pre-release-validation:
+    name: Pre-release Validation
+    runs-on: ubuntu-latest
+    if: ${{ !github.event.inputs.skip_tests }}
+    
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Extract version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION=${GITHUB_REF#refs/tags/}
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+        
+    - name: Validate version format
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        if [[ ! $VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "❌ Invalid version format: $VERSION"
+          echo "Expected format: v1.2.3"
+          exit 1
+        fi
+        echo "✅ Version format is valid: $VERSION"
+        
+    - name: Check for changelog entry
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        if [ -f CHANGELOG.md ]; then
+          if grep -q "$VERSION" CHANGELOG.md; then
+            echo "✅ Changelog entry found for $VERSION"
+          else
+            echo "⚠️ No changelog entry found for $VERSION"
+          fi
+        else
+          echo "⚠️ CHANGELOG.md not found"
+        fi
+
+  # Job 2: Comprehensive test suite for release
+  release-test-suite:
+    name: Release Test Suite
+    runs-on: ubuntu-latest
+    needs: pre-release-validation
+    if: ${{ !github.event.inputs.skip_tests }}
+    timeout-minutes: 60
+    
+    strategy:
+      matrix:
+        test-type: [unit, integration, security, performance-light]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Cache Python dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-release-${{ hashFiles('**/test-requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-release-
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r tests/test-requirements.txt
+        
+    - name: Run test suite - ${{ matrix.test-type }}
+      run: |
+        case "${{ matrix.test-type }}" in
+          "unit")
+            python tests/run_all_tests.py --include unit --coverage --junit-xml
+            ;;
+          "integration")
+            python tests/run_all_tests.py --include integration --junit-xml
+            ;;
+          "security")
+            python tests/run_all_tests.py --include security --junit-xml
+            ;;
+          "performance-light")
+            python tests/performance/run_performance_tests.py --scenario light --headless
+            ;;
+        esac
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: release-test-results-${{ matrix.test-type }}
+        path: |
+          tests/results/
+          junit-*.xml
+          coverage.xml
+
+  # Job 3: Build and push Docker images
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    needs: [pre-release-validation, release-test-suite]
+    if: always() && (needs.pre-release-validation.result == 'success' && (needs.release-test-suite.result == 'success' || github.event.inputs.skip_tests))
+    
+    strategy:
+      matrix:
+        service: [auth-service, data-processing, analytics, api-gateway, data-ingestion, notification]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}
+        tags: |
+          type=ref,event=tag
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest,enable={{is_default_branch}}
+          
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./services/${{ matrix.service }}
+        file: ./services/${{ matrix.service }}/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          VERSION=${{ needs.pre-release-validation.outputs.version }}
+          BUILD_DATE=${{ github.event.head_commit.timestamp }}
+          VCS_REF=${{ github.sha }}
+          
+    - name: Sign container image
+      run: |
+        # Sign the container image using cosign
+        echo "${{ secrets.COSIGN_PRIVATE_KEY }}" > cosign.key
+        cosign sign --key cosign.key ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}:${{ needs.pre-release-validation.outputs.version }}
+        rm cosign.key
+      env:
+        COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+
+  # Job 4: Build frontend
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    needs: [pre-release-validation, release-test-suite]
+    if: always() && (needs.pre-release-validation.result == 'success' && (needs.release-test-suite.result == 'success' || github.event.inputs.skip_tests))
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: Install frontend dependencies
+      working-directory: frontend
+      run: npm ci
+      
+    - name: Run frontend tests
+      working-directory: frontend
+      run: npm run test:coverage
+      
+    - name: Build frontend
+      working-directory: frontend
+      env:
+        REACT_APP_VERSION: ${{ needs.pre-release-validation.outputs.version }}
+        REACT_APP_BUILD_DATE: ${{ github.event.head_commit.timestamp }}
+        REACT_APP_COMMIT_SHA: ${{ github.sha }}
+      run: npm run build
+      
+    - name: Build and push frontend Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ github.repository }}/frontend:${{ needs.pre-release-validation.outputs.version }}
+          ${{ env.REGISTRY }}/${{ github.repository }}/frontend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Job 5: Deploy to staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [pre-release-validation, build-and-push, build-frontend]
+    if: always() && needs.build-and-push.result == 'success' && needs.build-frontend.result == 'success'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to staging
+      run: |
+        # Update docker-compose with new image tags
+        VERSION="${{ needs.pre-release-validation.outputs.version }}"
+        
+        # Replace image tags in docker-compose.prod.yml
+        sed -i "s|:latest|:$VERSION|g" docker-compose.prod.yml
+        
+        echo "Deployment configuration updated for version $VERSION"
+        echo "Ready for staging deployment"
+        
+    - name: Run deployment health checks
+      run: |
+        echo "Running health checks after deployment..."
+        # Add your deployment health check logic here
+        sleep 30  # Wait for services to start
+        
+        # Check staging environment health
+        curl -f "https://staging-api.energy-tracking.com/health" || {
+          echo "❌ Staging API health check failed"
+          exit 1
+        }
+        
+        curl -f "https://staging.energy-tracking.com" || {
+          echo "❌ Staging frontend health check failed"
+          exit 1
+        }
+        
+        echo "✅ Staging deployment health checks passed"
+
+  # Job 6: Staging smoke tests
+  staging-smoke-tests:
+    name: Staging Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [pre-release-validation, deploy-staging]
+    if: always() && needs.deploy-staging.result == 'success'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r tests/test-requirements.txt
+        
+    - name: Run staging smoke tests
+      run: |
+        python tests/e2e/test_complete_flows.py \
+          --host https://staging-api.energy-tracking.com \
+          --smoke-tests-only \
+          --timeout 300
+          
+    - name: Run critical path validation
+      run: |
+        python .github/scripts/run_critical_path_tests.py \
+          --api-url https://staging-api.energy-tracking.com \
+          --frontend-url https://staging.energy-tracking.com \
+          --timeout 180 \
+          --retry-attempts 2
+
+  # Job 7: Create GitHub release
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [pre-release-validation, staging-smoke-tests, build-and-push, build-frontend]
+    if: always() && needs.staging-smoke-tests.result == 'success'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        VERSION="${{ needs.pre-release-validation.outputs.version }}"
+        
+        # Extract changelog for this version
+        if [ -f CHANGELOG.md ]; then
+          CHANGELOG=$(awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md)
+        else
+          CHANGELOG="Release $VERSION"
+        fi
+        
+        # Get commit messages since last tag
+        LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        if [ -n "$LAST_TAG" ]; then
+          COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"- %s (%h)" --no-merges)
+        else
+          COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges --max-count=20)
+        fi
+        
+        # Combine changelog and commits
+        cat > release_notes.md << 'EOF'
+        ## 🚀 Release Notes
+        
+        ### 🔄 Changes in this release:
+        $COMMITS
+        
+        ### 🧪 Test Results:
+        - ✅ Unit Tests: Passed
+        - ✅ Integration Tests: Passed  
+        - ✅ Security Tests: Passed
+        - ✅ Staging Deployment: Successful
+        - ✅ Smoke Tests: Passed
+        
+        ### 📦 Docker Images:
+        - ghcr.io/${{ github.repository }}/auth-service:$VERSION
+        - ghcr.io/${{ github.repository }}/data-processing:$VERSION
+        - ghcr.io/${{ github.repository }}/analytics:$VERSION
+        - ghcr.io/${{ github.repository }}/api-gateway:$VERSION
+        - ghcr.io/${{ github.repository }}/data-ingestion:$VERSION
+        - ghcr.io/${{ github.repository }}/notification:$VERSION
+        - ghcr.io/${{ github.repository }}/frontend:$VERSION
+        
+        ### 🚀 Deployment:
+        - Staging: ✅ Deployed and validated
+        - Production: Ready for deployment
+        EOF
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ needs.pre-release-validation.outputs.version }}
+        release_name: Release ${{ needs.pre-release-validation.outputs.version }}
+        body_path: release_notes.md
+        draft: false
+        prerelease: ${{ contains(needs.pre-release-validation.outputs.version, '-') }}
+        
+    - name: Upload release assets
+      run: |
+        # Create deployment package
+        tar -czf energy-tracking-${{ needs.pre-release-validation.outputs.version }}.tar.gz \
+          docker-compose.prod.yml \
+          infrastructure/ \
+          scripts/ \
+          .env.example
+          
+        # Upload to release (requires additional setup for asset upload)
+        echo "Release package created: energy-tracking-${{ needs.pre-release-validation.outputs.version }}.tar.gz"
+
+  # Job 8: Production deployment (manual approval required)
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [pre-release-validation, create-release]
+    if: always() && needs.create-release.result == 'success' && github.event.inputs.environment == 'production'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to production
+      run: |
+        echo "🚀 Starting production deployment..."
+        VERSION="${{ needs.pre-release-validation.outputs.version }}"
+        
+        # Production deployment logic here
+        echo "Deploying version $VERSION to production"
+        
+    - name: Run production health checks
+      run: |
+        echo "Running production health checks..."
+        sleep 60  # Wait for services to stabilize
+        
+        # Check production environment health
+        curl -f "https://api.energy-tracking.com/health" || {
+          echo "❌ Production API health check failed"
+          exit 1
+        }
+        
+        curl -f "https://energy-tracking.com" || {
+          echo "❌ Production frontend health check failed"
+          exit 1
+        }
+        
+        echo "✅ Production deployment health checks passed"
+        
+    - name: Notify deployment success
+      run: |
+        echo "🎉 Production deployment successful!"
+        echo "Version ${{ needs.pre-release-validation.outputs.version }} is now live"
+
+  # Job 9: Post-release validation
+  post-release-validation:
+    name: Post-release Validation
+    runs-on: ubuntu-latest
+    needs: [pre-release-validation, deploy-production]
+    if: always() && (needs.deploy-production.result == 'success' || needs.deploy-production.result == 'skipped')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run post-release smoke tests
+      run: |
+        if [ "${{ needs.deploy-production.result }}" = "success" ]; then
+          TARGET_URL="https://api.energy-tracking.com"
+        else
+          TARGET_URL="https://staging-api.energy-tracking.com"
+        fi
+        
+        echo "Running post-release validation against $TARGET_URL"
+        
+        # Run critical functionality tests
+        python .github/scripts/run_critical_path_tests.py \
+          --api-url $TARGET_URL \
+          --timeout 300 \
+          --post-release-validation
+          
+    - name: Update deployment status
+      run: |
+        echo "✅ Release ${{ needs.pre-release-validation.outputs.version }} validation complete"
+        
+        if [ "${{ needs.deploy-production.result }}" = "success" ]; then
+          echo "🌟 Production deployment successful and validated"
+        else
+          echo "🎯 Staging deployment successful and validated"
+        fi

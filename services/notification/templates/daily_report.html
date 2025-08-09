@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Energy Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .metric {
+            display: inline-block;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px;
+            min-width: 120px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .metric-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .device-list {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .device-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        .device-item:last-child {
+            border-bottom: none;
+        }
+        .status-online { color: #28a745; }
+        .status-offline { color: #dc3545; }
+        .status-warning { color: #ffc107; }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 0.9em;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>📊 Daily Energy Report</h2>
+        <p>{{ date }}</p>
+    </div>
+
+    <div class="metrics">
+        <h3>Today's Summary</h3>
+        <div class="metric">
+            <div class="metric-value">{{ total_energy }}</div>
+            <div class="metric-label">Total Energy (kWh)</div>
+        </div>
+        <div class="metric">
+            <div class="metric-value">{{ avg_power }}</div>
+            <div class="metric-label">Avg Power (W)</div>
+        </div>
+        <div class="metric">
+            <div class="metric-value">{{ peak_power }}</div>
+            <div class="metric-label">Peak Power (W)</div>
+        </div>
+        <div class="metric">
+            <div class="metric-value">${{ total_cost }}</div>
+            <div class="metric-label">Estimated Cost</div>
+        </div>
+    </div>
+
+    {% if devices %}
+    <div class="device-list">
+        <h4>Device Status ({{ devices|length }} devices)</h4>
+        {% for device in devices %}
+        <div class="device-item">
+            <span>{{ device.name }}</span>
+            <span class="status-{{ device.status }}">{{ device.status|upper }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if alerts_count > 0 %}
+    <div class="device-list">
+        <h4>⚠️ Alerts Today</h4>
+        <p>{{ alerts_count }} alerts were generated today.</p>
+        {% if top_alerts %}
+        <ul>
+            {% for alert in top_alerts %}
+            <li>{{ alert.time }} - {{ alert.message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if efficiency_score %}
+    <div class="device-list">
+        <h4>⚡ Efficiency Analysis</h4>
+        <p><strong>Efficiency Score:</strong> {{ efficiency_score }}/100</p>
+        {% if efficiency_tips %}
+        <p><strong>Tips for improvement:</strong></p>
+        <ul>
+            {% for tip in efficiency_tips %}
+            <li>{{ tip }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="footer">
+        <p>Energy Tracking System - Daily Report</p>
+        <p>Generated on {{ generated_at }}</p>
+    </div>
+</body>
+</html>

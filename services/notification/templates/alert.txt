@@ -1,0 +1,40 @@
+ENERGY ALERT - {{ alert_type|upper }}
+
+Device: {{ device_name }} ({{ device_id }})
+Time: {{ timestamp }}
+Priority: {{ priority|upper }}
+
+Alert Details:
+{{ message }}
+
+{% if device_info -%}
+Device Information:
+{% for key, value in device_info.items() -%}
+- {{ key|title }}: {{ value }}
+{% endfor %}
+{% endif -%}
+
+{% if readings -%}
+Current Readings:
+- Power: {{ readings.power }} W
+- Voltage: {{ readings.voltage }} V
+- Current: {{ readings.current }} A
+{% if readings.energy -%}
+- Energy: {{ readings.energy }} Wh
+{% endif -%}
+{% endif -%}
+
+{% if recommendations -%}
+Recommendations:
+{% for recommendation in recommendations -%}
+- {{ recommendation }}
+{% endfor %}
+{% endif -%}
+
+{% if dashboard_url -%}
+View Dashboard: {{ dashboard_url }}
+{% endif -%}
+
+---
+This is an automated alert from your Energy Tracking System.
+If you believe this alert was sent in error, please contact your system administrator.

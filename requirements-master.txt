@@ -1,0 +1,94 @@
+# Energy Tracking Platform - Master Requirements
+# This file documents all dependencies used across the platform
+
+# =============================================================================
+# CORE FRAMEWORK DEPENDENCIES (used by multiple services)
+# =============================================================================
+fastapi==0.104.1          # Web framework
+uvicorn==0.24.0           # ASGI server
+pydantic>=2.6.0,<2.10.0   # Data validation
+pydantic-settings==2.1.0  # Settings management
+python-dotenv==1.0.0      # Environment variables
+httpx==0.25.2             # HTTP client
+python-multipart==0.0.6   # Form data parsing
+
+# =============================================================================
+# DATABASE DEPENDENCIES
+# =============================================================================
+sqlalchemy==2.0.23        # ORM
+asyncpg==0.29.0           # PostgreSQL async driver
+psycopg2-binary==2.9.9    # PostgreSQL sync driver
+redis==5.0.1              # Redis client
+influxdb-client==1.38.0   # InfluxDB time-series database
+
+# =============================================================================
+# MQTT & IoT DEPENDENCIES
+# =============================================================================
+paho-mqtt==1.6.1          # MQTT client (data-ingestion, iot-mock)
+
+# =============================================================================
+# AUTHENTICATION & SECURITY
+# =============================================================================
+python-jose[cryptography]==3.3.0  # JWT handling
+PyJWT==2.8.0              # JWT tokens
+bcrypt==4.1.2             # Password hashing
+
+# =============================================================================
+# DATA PROCESSING & ANALYTICS
+# =============================================================================
+pandas==2.1.3            # Data analysis (if used)
+numpy==1.24.3             # Numerical computing (if used)
+
+# =============================================================================
+# BACKGROUND TASKS & NOTIFICATIONS
+# =============================================================================
+celery==5.3.4             # Task queue
+redis==5.0.1              # Message broker for Celery
+
+# =============================================================================
+# MONITORING & OBSERVABILITY
+# =============================================================================
+opentelemetry-api==1.21.0    # Tracing API
+opentelemetry-sdk==1.21.0    # Tracing SDK
+structlog==23.2.0             # Structured logging
+psutil==5.9.6                 # System monitoring
+
+# =============================================================================
+# UTILITIES
+# =============================================================================
+python-dateutil==2.8.2    # Date utilities
+requests==2.31.0          # HTTP requests
+
+# =============================================================================
+# SERVICE-SPECIFIC BREAKDOWN:
+# =============================================================================
+# 
+# auth-service:
+#   - fastapi, uvicorn, pydantic, sqlalchemy, asyncpg
+#   - python-jose, PyJWT, bcrypt
+#   - redis (for session storage)
+#
+# api-gateway:
+#   - fastapi, uvicorn, httpx
+#   - sqlalchemy, asyncpg (for routing config)
+#
+# data-ingestion:
+#   - fastapi, uvicorn, pydantic
+#   - paho-mqtt, influxdb-client, redis, asyncpg
+#
+# analytics:
+#   - fastapi, uvicorn, httpx
+#   - sqlalchemy (for analytics storage)
+#
+# iot-mock:
+#   - fastapi, uvicorn, pydantic
+#   - paho-mqtt (for simulation)
+#
+# notification:
+#   - fastapi, uvicorn
+#   - celery, redis
+#
+# data-processing:
+#   - celery, redis
+#   - influxdb-client, pandas, numpy
+# =============================================================================

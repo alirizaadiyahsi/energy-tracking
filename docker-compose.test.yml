@@ -1,0 +1,297 @@
+version: '3.8'
+
+services:
+  # ==============================================================================
+  # DATABASES & INFRASTRUCTURE
+  # ==============================================================================
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: energy_tracking_test
+    volumes:
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./scripts/rbac-migration.sql:/docker-entrypoint-initdb.d/02-rbac.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  influxdb:
+    image: influxdb:2.7
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: password123
+      DOCKER_INFLUXDB_INIT_ORG: energy-tracking
+      DOCKER_INFLUXDB_INIT_BUCKET: energy-data-test
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: test-token
+    ports:
+      - "8086:8086"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    volumes:
+      - ./infrastructure/mosquitto/mosquitto.dev.conf:/mosquitto/config/mosquitto.conf
+      - ./infrastructure/mosquitto/passwd:/mosquitto/config/passwd
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+
+  # ==============================================================================
+  # APPLICATION SERVICES
+  # ==============================================================================
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/energy_tracking_test
+      - REDIS_URL=redis://redis:6379/0
+      - AUTH_SERVICE_URL=http://auth-service:8005
+      - DATA_INGESTION_SERVICE_URL=http://data-ingestion:8001
+      - DATA_PROCESSING_SERVICE_URL=http://data-processing:8002
+      - ANALYTICS_SERVICE_URL=http://analytics:8003
+      - NOTIFICATION_SERVICE_URL=http://notification:8004
+      - JWT_SECRET_KEY=test-secret-key-for-testing-only
+      - LOG_LEVEL=INFO
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/energy_tracking_test
+      - REDIS_URL=redis://redis:6379/1
+      - JWT_SECRET_KEY=test-secret-key-for-testing-only
+      - JWT_ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - REFRESH_TOKEN_EXPIRE_DAYS=7
+      - PASSWORD_MIN_LENGTH=8
+      - LOG_LEVEL=INFO
+    ports:
+      - "8005:8005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  data-ingestion:
+    build:
+      context: ./services/data-ingestion
+      dockerfile: Dockerfile
+    environment:
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=test-token
+      - INFLUXDB_ORG=energy-tracking
+      - INFLUXDB_BUCKET=energy-data-test
+      - MQTT_BROKER_HOST=mosquitto
+      - MQTT_BROKER_PORT=1883
+      - MQTT_USERNAME=energy_user
+      - MQTT_PASSWORD=energy_pass
+      - LOG_LEVEL=INFO
+    ports:
+      - "8001:8001"
+    depends_on:
+      influxdb:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  data-processing:
+    build:
+      context: ./services/data-processing
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/energy_tracking_test
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=test-token
+      - INFLUXDB_ORG=energy-tracking
+      - INFLUXDB_BUCKET=energy-data-test
+      - REDIS_URL=redis://redis:6379/2
+      - CELERY_BROKER_URL=redis://redis:6379/3
+      - CELERY_RESULT_BACKEND=redis://redis:6379/4
+      - LOG_LEVEL=INFO
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  analytics:
+    build:
+      context: ./services/analytics
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/energy_tracking_test
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=test-token
+      - INFLUXDB_ORG=energy-tracking
+      - INFLUXDB_BUCKET=energy-data-test
+      - REDIS_URL=redis://redis:6379/5
+      - LOG_LEVEL=INFO
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  notification:
+    build:
+      context: ./services/notification
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/energy_tracking_test
+      - REDIS_URL=redis://redis:6379/6
+      - CELERY_BROKER_URL=redis://redis:6379/7
+      - CELERY_RESULT_BACKEND=redis://redis:6379/8
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USERNAME=test@example.com
+      - SMTP_PASSWORD=test-password
+      - SMTP_FROM_EMAIL=test@example.com
+      - SMTP_FROM_NAME=Energy Tracking Test
+      - LOG_LEVEL=INFO
+    ports:
+      - "8004:8004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==============================================================================
+  # WORKERS
+  # ==============================================================================
+  data-processing-worker:
+    build:
+      context: ./services/data-processing
+      dockerfile: Dockerfile
+    command: celery -A core.celery worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/energy_tracking_test
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=test-token
+      - INFLUXDB_ORG=energy-tracking
+      - INFLUXDB_BUCKET=energy-data-test
+      - REDIS_URL=redis://redis:6379/2
+      - CELERY_BROKER_URL=redis://redis:6379/3
+      - CELERY_RESULT_BACKEND=redis://redis:6379/4
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  notification-worker:
+    build:
+      context: ./services/notification
+      dockerfile: Dockerfile
+    command: celery -A core.celery worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/energy_tracking_test
+      - REDIS_URL=redis://redis:6379/6
+      - CELERY_BROKER_URL=redis://redis:6379/7
+      - CELERY_RESULT_BACKEND=redis://redis:6379/8
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USERNAME=test@example.com
+      - SMTP_PASSWORD=test-password
+      - SMTP_FROM_EMAIL=test@example.com
+      - SMTP_FROM_NAME=Energy Tracking Test
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ==============================================================================
+  # FRONTEND
+  # ==============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+      - VITE_WS_BASE_URL=ws://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+
+networks:
+  default:
+    name: energy-tracking-test
