@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Info, Lightbulb } from 'lucide-react';
-import { useEfficiencyAnalysis } from '../../hooks/useAnalyticsData';
+import { useEfficiencyData } from '../../hooks/useAnalyticsData';
 import { ChartParams } from '../../types/analytics';
 import { formatAnalyticsValue } from '../../utils/analyticsTransformers';
 
@@ -182,13 +182,13 @@ const RecommendationCard: React.FC<RecommendationCardProps> = ({
 };
 
 const EfficiencyAnalysis: React.FC<EfficiencyAnalysisProps> = ({
-  params: _params,
+  params,
   deviceId: _deviceId,
   showRecommendations = true,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'immediate' | 'short-term' | 'long-term'>('all');
   
-  const { data: efficiencyData, isLoading, error } = useEfficiencyAnalysis();
+  const { data: efficiencyData, isLoading, error } = useEfficiencyData(params);
 
   const recommendations = useMemo(() => [
     {
@@ -268,7 +268,9 @@ const EfficiencyAnalysis: React.FC<EfficiencyAnalysisProps> = ({
           <AlertTriangle className="h-5 w-5 text-red-500" />
           <p className="text-red-600 font-medium">Failed to load efficiency analysis</p>
         </div>
-        <p className="text-red-500 text-sm mt-1">{error.message}</p>
+        <p className="text-red-500 text-sm mt-1">
+          {error instanceof Error ? error.message : 'Failed to load efficiency analysis'}
+        </p>
       </div>
     );
   }

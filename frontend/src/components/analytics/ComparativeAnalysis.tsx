@@ -451,7 +451,11 @@ const ComparativeAnalysis: React.FC<ComparativeAnalysisProps> = ({
 
       {/* Chart */}
       <div style={{ height: `${height}px` }} className="w-full">
-        <ChartComponent data={chartData} options={chartOptions} />
+        <ChartComponent 
+          key={`comparative-chart-${chartType}-${selectedPeriods.length}-${selectedPeriods.map(p => p.id).join('-')}`}
+          data={chartData} 
+          options={chartOptions} 
+        />
       </div>
     </div>
   );

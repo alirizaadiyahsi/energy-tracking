@@ -328,7 +328,11 @@ const ConsumptionTrendsChart: React.FC<ConsumptionTrendsChartProps> = ({
 
       {/* Chart */}
       <div style={{ height: `${height}px` }} className="w-full">
-        <Line data={chartData} options={options} />
+        <Line 
+          key={`consumption-chart-${params.interval}-${params.timeRange}-${showSmoothing}`}
+          data={chartData} 
+          options={options} 
+        />
       </div>
     </div>
   );

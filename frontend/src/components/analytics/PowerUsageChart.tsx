@@ -433,7 +433,11 @@ const PowerUsageChart: React.FC<PowerUsageChartProps> = ({
 
       {/* Chart */}
       <div style={{ height: `${height}px` }} className="w-full">
-        <Line data={chartData} options={options} />
+        <Line 
+          key={`power-chart-${params.interval}-${params.timeRange}-${showPeakDetection}`}
+          data={chartData} 
+          options={options} 
+        />
       </div>
     </div>
   );

@@ -544,7 +544,11 @@ const ConsumptionForecast: React.FC<ConsumptionForecastProps> = ({
 
       {/* Chart */}
       <div style={{ height: `${height}px` }} className="w-full">
-        <Line data={chartData} options={options} />
+        <Line 
+          key={`forecast-chart-${forecastDays}-${confidenceInterval}`}
+          data={chartData} 
+          options={options} 
+        />
       </div>
     </div>
   );
