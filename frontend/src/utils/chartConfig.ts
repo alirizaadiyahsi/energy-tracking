@@ -2,6 +2,7 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
+  TimeScale,
   PointElement,
   LineElement,
   BarElement,
@@ -11,11 +12,13 @@ import {
   Legend,
   Filler,
 } from 'chart.js';
+import 'chartjs-adapter-date-fns';
 
 // Register Chart.js components
 ChartJS.register(
   CategoryScale,
   LinearScale,
+  TimeScale,
   PointElement,
   LineElement,
   BarElement,

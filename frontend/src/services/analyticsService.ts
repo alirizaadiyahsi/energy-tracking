@@ -76,12 +76,9 @@ class AnalyticsService {
       }
       throw new Error(response.data.message || 'Failed to fetch consumption trends');
     } catch (error) {
-      console.log('Using mock consumption trends data (API unavailable)');
-      
-      // Return mock data for development
-      const mockData: ChartDataPoint[] = this.generateMockChartData(params, 'energy');
-      this.setCache(cacheKey, mockData, 1 * 60 * 1000); // 1 minute cache for mock data
-      return mockData;
+      console.error('Error fetching consumption trends:', error);
+      // Return empty array instead of mock data to indicate no data available
+      return [];
     }
   }
 
@@ -110,12 +107,9 @@ class AnalyticsService {
       }
       throw new Error(response.data.message || 'Failed to fetch power trends');
     } catch (error) {
-      console.log('Using mock power trends data (API unavailable)');
-      
-      // Return mock data for development
-      const mockData: ChartDataPoint[] = this.generateMockChartData(params, 'power');
-      this.setCache(cacheKey, mockData, 1 * 60 * 1000); // 1 minute cache for mock data
-      return mockData;
+      console.error('Error fetching power trends:', error);
+      // Return empty array instead of mock data to indicate no data available
+      return [];
     }
   }
 
@@ -136,27 +130,16 @@ class AnalyticsService {
       }
       throw new Error(response.data.message || 'Failed to fetch efficiency analysis');
     } catch (error) {
-      // Silently fall back to mock data for development (API not available)
-      console.log('Using mock efficiency analysis data (API unavailable)');
+      console.error('Error fetching efficiency analysis:', error);
       
-      // Return mock data for development
-      const mockData: EfficiencyAnalysis = {
-        overall_efficiency: 78.5,
-        device_efficiency: [
-          { device_id: 'device_1', efficiency: 85.2, device_name: 'HVAC System' },
-          { device_id: 'device_2', efficiency: 72.8, device_name: 'Lighting System' },
-          { device_id: 'device_3', efficiency: 91.3, device_name: 'Motor Controllers' },
-        ],
-        improvement_suggestions: [
-          'Optimize HVAC scheduling during peak hours',
-          'Upgrade to LED lighting systems',
-          'Implement variable frequency drives',
-          'Install power factor correction capacitors',
-        ],
+      // Return empty efficiency data structure instead of mock data
+      const emptyData: EfficiencyAnalysis = {
+        overall_efficiency: 0,
+        device_efficiency: [],
+        improvement_suggestions: ['No efficiency data available - check device connections and analytics service'],
       };
 
-      this.setCache(cacheKey, mockData, 5 * 60 * 1000); // 5 minutes cache for mock data
-      return mockData;
+      return emptyData;
     }
   }
 
@@ -177,47 +160,21 @@ class AnalyticsService {
       }
       throw new Error(response.data.message || 'Failed to fetch alerts');
     } catch (error) {
-      console.log('Using mock alerts data (API unavailable)');
+      console.error('Error fetching alerts:', error);
       
-      // Return mock alerts data for development
-      const mockAlerts: AlertsResponse = {
-        alerts: [
-          {
-            id: 'alert_1',
-            title: 'High Energy Consumption',
-            message: 'High energy consumption detected in HVAC system',
-            type: 'warning',
-            severity: 'medium',
-            device_id: 'device_1',
-            device_name: 'HVAC System',
-            timestamp: new Date().toISOString(),
-            is_read: false,
-            anomaly_score: 75.2,
-          },
-          {
-            id: 'alert_2',
-            title: 'Power Threshold Exceeded',
-            message: 'Power usage exceeded threshold in lighting system',
-            type: 'error',
-            severity: 'high',
-            device_id: 'device_2',
-            device_name: 'Lighting System',
-            timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-            is_read: false,
-            anomaly_score: 92.5,
-          },
-        ],
+      // Return empty alerts structure instead of mock data
+      const emptyAlerts: AlertsResponse = {
+        alerts: [],
         summary: {
-          total_alerts: 2,
-          critical_count: 1,
-          warning_count: 1,
+          total_alerts: 0,
+          critical_count: 0,
+          warning_count: 0,
           info_count: 0,
-          recent_trends: 'Increasing anomalies detected in past 24h',
+          recent_trends: 'No alert data available',
         },
       };
       
-      this.setCache(cacheKey, mockAlerts, 1 * 60 * 1000);
-      return mockAlerts;
+      return emptyAlerts;
     }
   }
 
@@ -400,27 +357,26 @@ class AnalyticsService {
       this.setCache(cacheKey, summary, 5 * 60 * 1000); // 5 minutes cache
       return summary;
     } catch (error) {
-      console.log('Using mock analytics summary data (API unavailable)');
+      console.error('Error fetching analytics summary:', error);
       
-      // Return mock data for development
-      const mockSummary: AnalyticsSummary = {
-        total_energy_consumption: 1247.5,
-        average_power: 1856.7,
-        system_efficiency: 78.5,
-        total_cost: 187.42,
-        active_devices: 12,
-        anomalies_detected: 3,
-        peak_demand: 2340.8,
-        energy_savings: 234.12,
+      // Return empty summary structure instead of mock data
+      const emptySummary: AnalyticsSummary = {
+        total_energy_consumption: 0,
+        average_power: 0,
+        system_efficiency: 0,
+        total_cost: 0,
+        active_devices: 0,
+        anomalies_detected: 0,
+        peak_demand: 0,
+        energy_savings: 0,
         trend_indicators: {
-          energy_trend: 'up',
-          efficiency_trend: 'up',
+          energy_trend: 'stable',
+          efficiency_trend: 'stable',
           cost_trend: 'stable'
         }
       };
 
-      this.setCache(cacheKey, mockSummary, 2 * 60 * 1000); // 2 minutes cache for mock data
-      return mockSummary;
+      return emptySummary;
     }
   }
 
@@ -434,57 +390,6 @@ class AnalyticsService {
     return () => {
       console.log('Unsubscribing from real-time data');
     };
-  }
-
-  /**
-   * Generate mock chart data for development
-   */
-  private generateMockChartData(params: ChartParams, type: 'energy' | 'power'): ChartDataPoint[] {
-    const now = new Date();
-    const data: ChartDataPoint[] = [];
-    
-    // Determine number of data points based on interval and time range
-    let pointCount = 24; // default
-    let intervalMs = 60 * 60 * 1000; // 1 hour
-    
-    switch (params.interval) {
-      case 'minutely':
-        intervalMs = 60 * 1000; // 1 minute
-        pointCount = params.timeRange === '1h' ? 60 : 120;
-        break;
-      case 'hourly':
-        intervalMs = 60 * 60 * 1000; // 1 hour
-        pointCount = params.timeRange === '24h' ? 24 : params.timeRange === '7d' ? 168 : 720;
-        break;
-      case 'daily':
-        intervalMs = 24 * 60 * 60 * 1000; // 1 day
-        pointCount = params.timeRange === '7d' ? 7 : 30;
-        break;
-    }
-
-    // Generate mock data points
-    for (let i = pointCount - 1; i >= 0; i--) {
-      const timestamp = new Date(now.getTime() - (i * intervalMs)).toISOString();
-      
-      // Generate realistic mock values
-      let baseValue = type === 'power' ? 1500 : 25; // watts vs kWh
-      
-      // Add some patterns (higher during day, lower at night)
-      const hour = new Date(timestamp).getHours();
-      const dayFactor = Math.sin((hour - 6) * Math.PI / 12) * 0.3 + 0.7;
-      
-      // Add some randomness
-      const randomFactor = 0.8 + Math.random() * 0.4;
-      
-      const value = Math.max(0, baseValue * dayFactor * randomFactor);
-      
-      data.push({
-        timestamp,
-        value: Math.round(value * 100) / 100, // round to 2 decimals
-      });
-    }
-    
-    return data;
   }
 }
 

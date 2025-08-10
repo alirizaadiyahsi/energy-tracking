@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Bar, Line } from 'react-chartjs-2';
-import { Download, TrendingUp, Calendar, BarChart3, ArrowUpDown } from 'lucide-react';
+import { Download, TrendingUp, BarChart3, ArrowUpDown } from 'lucide-react';
 import { ChartDataPoint } from '../../types';
 import { ChartParams } from '../../types/analytics';
+import { useConsumptionTrends } from '../../hooks/useAnalyticsData';
 import { formatAnalyticsValue } from '../../utils/analyticsTransformers';
 import { defaultChartOptions } from '../../utils/chartConfig';
 
@@ -18,7 +19,6 @@ interface ComparativeAnalysisProps {
   params: ChartParams;
   height?: number;
   showControls?: boolean;
-  onParamsChange?: (params: ChartParams) => void;
 }
 
 interface ComparisonControlsProps {
@@ -48,99 +48,124 @@ const ComparisonControls: React.FC<ComparisonControlsProps> = ({
 
   const predefinedPeriods = [
     {
-      id: 'this_week',
-      label: 'This Week',
+      id: 'last-7-days',
+      label: 'Last 7 Days',
       start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
       end: new Date().toISOString(),
-      color: '#3b82f6',
+      color: '#3B82F6',
     },
     {
-      id: 'last_week',
-      label: 'Last Week',
+      id: 'last-30-days',
+      label: 'Last 30 Days',
+      start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      end: new Date().toISOString(),
+      color: '#10B981',
+    },
+    {
+      id: 'previous-week',
+      label: 'Previous Week',
       start: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
       end: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      color: '#10b981',
+      color: '#F59E0B',
     },
     {
-      id: 'this_month',
-      label: 'This Month',
-      start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
-      end: new Date().toISOString(),
-      color: '#f59e0b',
-    },
-    {
-      id: 'last_month',
-      label: 'Last Month',
-      start: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString(),
-      end: new Date(new Date().getFullYear(), new Date().getMonth(), 0).toISOString(),
-      color: '#ef4444',
+      id: 'previous-month',
+      label: 'Previous Month',
+      start: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+      end: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      color: '#EF4444',
     },
   ];
 
-  const handlePeriodToggle = (period: ComparisonPeriod) => {
-    const exists = selectedPeriods.find(p => p.id === period.id);
-    if (exists) {
+  const togglePeriod = (period: ComparisonPeriod) => {
+    const isSelected = selectedPeriods.some(p => p.id === period.id);
+    if (isSelected) {
       onPeriodsChange(selectedPeriods.filter(p => p.id !== period.id));
-    } else if (selectedPeriods.length < 4) {
-      onPeriodsChange([...selectedPeriods, period]);
+    } else {
+      if (selectedPeriods.length < 3) { // Limit to 3 periods for readability
+        onPeriodsChange([...selectedPeriods, period]);
+      }
     }
   };
 
   return (
-    <div className="space-y-4 mb-6">
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="flex items-center space-x-2">
-          <ArrowUpDown className="h-4 w-4 text-blue-500" />
-          <select
-            value={comparisonType}
-            onChange={(e) => onComparisonTypeChange(e.target.value as typeof comparisonType)}
-            disabled={isLoading}
-            className="text-sm border border-blue-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {comparisonTypes.map(type => (
-              <option key={type.value} value={type.value}>
-                Compare {type.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <BarChart3 className="h-4 w-4 text-blue-500" />
-          <select
-            value={chartType}
-            onChange={(e) => onChartTypeChange(e.target.value as typeof chartType)}
-            disabled={isLoading}
-            className="text-sm border border-blue-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="bar">Bar Chart</option>
-            <option value="line">Line Chart</option>
-          </select>
+    <div className="mb-6 space-y-4">
+      {/* Comparison Type Selector */}
+      <div className="flex items-center space-x-4">
+        <label className="text-sm font-medium text-gray-700">Compare by:</label>
+        <div className="flex space-x-2">
+          {comparisonTypes.map(type => (
+            <button
+              key={type.value}
+              onClick={() => onComparisonTypeChange(type.value)}
+              className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                comparisonType === type.value
+                  ? 'bg-primary-100 text-primary-700 border border-primary-300'
+                  : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+              }`}
+              disabled={isLoading}
+            >
+              {type.label}
+            </button>
+          ))}
         </div>
       </div>
 
+      {/* Chart Type Selector */}
+      <div className="flex items-center space-x-4">
+        <label className="text-sm font-medium text-gray-700">Chart type:</label>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => onChartTypeChange('bar')}
+            className={`px-3 py-1 text-sm rounded-md transition-colors ${
+              chartType === 'bar'
+                ? 'bg-primary-100 text-primary-700 border border-primary-300'
+                : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+            }`}
+            disabled={isLoading}
+          >
+            <BarChart3 className="w-4 h-4 inline mr-1" />
+            Bar
+          </button>
+          <button
+            onClick={() => onChartTypeChange('line')}
+            className={`px-3 py-1 text-sm rounded-md transition-colors ${
+              chartType === 'line'
+                ? 'bg-primary-100 text-primary-700 border border-primary-300'
+                : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+            }`}
+            disabled={isLoading}
+          >
+            <TrendingUp className="w-4 h-4 inline mr-1" />
+            Line
+          </button>
+        </div>
+      </div>
+
+      {/* Period Selection */}
       {comparisonType === 'period' && (
         <div>
-          <p className="text-sm text-gray-600 mb-2">Select periods to compare (max 4):</p>
-          <div className="flex flex-wrap gap-2">
+          <label className="text-sm font-medium text-gray-700 block mb-2">
+            Select periods to compare (max 3):
+          </label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {predefinedPeriods.map(period => {
-              const isSelected = selectedPeriods.find(p => p.id === period.id);
+              const isSelected = selectedPeriods.some(p => p.id === period.id);
               return (
                 <button
                   key={period.id}
-                  onClick={() => handlePeriodToggle(period)}
-                  disabled={isLoading || (!isSelected && selectedPeriods.length >= 4)}
-                  className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                  onClick={() => togglePeriod(period)}
+                  className={`p-3 text-sm rounded-md border transition-colors ${
                     isSelected
-                      ? 'bg-blue-100 border-blue-300 text-blue-700'
-                      : 'bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100'
-                  } ${
-                    !isSelected && selectedPeriods.length >= 4
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'cursor-pointer'
+                      ? 'bg-primary-50 border-primary-300 text-primary-700'
+                      : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
                   }`}
-                  style={isSelected ? { borderColor: period.color, color: period.color } : {}}
+                  disabled={isLoading || (!isSelected && selectedPeriods.length >= 3)}
                 >
+                  <div
+                    className="w-3 h-3 rounded-full mx-auto mb-1"
+                    style={{ backgroundColor: period.color }}
+                  />
                   {period.label}
                 </button>
               );
@@ -152,282 +177,254 @@ const ComparisonControls: React.FC<ComparisonControlsProps> = ({
   );
 };
 
-interface ComparisonStatsProps {
-  data: any[];
-  selectedPeriods: ComparisonPeriod[];
-}
-
-const ComparisonStats: React.FC<ComparisonStatsProps> = ({ data, selectedPeriods }) => {
-  const stats = useMemo(() => {
-    if (!data || data.length === 0 || selectedPeriods.length === 0) {
-      return [];
-    }
-
-    return selectedPeriods.map(period => {
-      const periodData = data.find(d => d.periodId === period.id);
-      if (!periodData) return null;
-
-      const total = periodData.data.reduce((sum: number, point: ChartDataPoint) => sum + point.value, 0);
-      const average = total / periodData.data.length;
-      const peak = Math.max(...periodData.data.map((point: ChartDataPoint) => point.value));
-
-      return {
-        period,
-        total,
-        average,
-        peak,
-        dataPoints: periodData.data.length,
-      };
-    }).filter((stat): stat is NonNullable<typeof stat> => stat !== null);
-  }, [data, selectedPeriods]);
-
-  if (stats.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-3 bg-blue-50 rounded-lg">
-      {stats.map((stat) => (
-        <div key={stat.period.id} className="text-center">
-          <div className="flex items-center justify-center space-x-2 mb-1">
-            <div
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: stat.period.color }}
-            />
-            <p className="text-xs font-medium text-blue-900">{stat.period.label}</p>
-          </div>
-          <div className="space-y-1">
-            <p className="text-xs text-blue-600">Total</p>
-            <p className="text-sm font-semibold text-blue-900">
-              {formatAnalyticsValue(stat.total, 'energy')}
-            </p>
-            <p className="text-xs text-blue-600">Avg: {formatAnalyticsValue(stat.average, 'energy')}</p>
-            <p className="text-xs text-blue-600">Peak: {formatAnalyticsValue(stat.peak, 'energy')}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
 const ComparativeAnalysis: React.FC<ComparativeAnalysisProps> = ({
+  params,
   height = 400,
   showControls = true,
 }) => {
+  const [comparisonType, setComparisonType] = useState<'period' | 'device' | 'metric'>('period');
   const [selectedPeriods, setSelectedPeriods] = useState<ComparisonPeriod[]>([
     {
-      id: 'this_week',
-      label: 'This Week',
+      id: 'last-7-days',
+      label: 'Last 7 Days',
       start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
       end: new Date().toISOString(),
-      color: '#3b82f6',
+      color: '#3B82F6',
     },
     {
-      id: 'last_week',
-      label: 'Last Week',
+      id: 'previous-week',
+      label: 'Previous Week',
       start: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
       end: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      color: '#10b981',
+      color: '#10B981',
     },
   ]);
-
-  const [comparisonType, setComparisonType] = useState<'period' | 'device' | 'metric'>('period');
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
 
-  // Mock data generation for comparison
-  const mockData = useMemo(() => {
-    if (selectedPeriods.length === 0) return [];
+  // Fetch real data for each selected period
+  const periodDataQueries = selectedPeriods.map(period => {
+    const periodParams = {
+      ...params,
+      timeRange: '7d' as const, // Use a valid timeRange value
+    };
+    
+    return {
+      period,
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      query: useConsumptionTrends(periodParams, true, 60000), // Refetch every minute
+    };
+  });
 
-    return selectedPeriods.map(period => {
-      const dataPoints: ChartDataPoint[] = [];
-      const startDate = new Date(period.start);
-      const endDate = new Date(period.end);
-      const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  const isLoading = periodDataQueries.some(({ query }) => query.isLoading);
+  const hasError = periodDataQueries.some(({ query }) => query.error);
+
+  // Process the real data for comparison
+  const realData = useMemo(() => {
+    if (periodDataQueries.length === 0) return [];
+
+    return periodDataQueries.map(({ period, query }) => {
+      const data = query.data || [];
       
-      const pointsCount = Math.min(daysDiff, 14); // Max 14 points for readability
-      const intervalMs = (endDate.getTime() - startDate.getTime()) / pointsCount;
-
-      for (let i = 0; i < pointsCount; i++) {
-        const timestamp = new Date(startDate.getTime() + (i * intervalMs)).toISOString();
-        
-        // Generate realistic data with period-specific characteristics
-        let baseValue = 25;
-        if (period.id.includes('week')) {
-          baseValue = 20 + Math.sin(i * 0.3) * 8; // Weekly pattern
-        } else if (period.id.includes('month')) {
-          baseValue = 30 + Math.sin(i * 0.1) * 10; // Monthly pattern
+      // Aggregate data by day for better comparison
+      const dailyData: { [date: string]: number } = {};
+      
+      data.forEach(point => {
+        const date = new Date(point.timestamp).toISOString().split('T')[0];
+        if (!dailyData[date]) {
+          dailyData[date] = 0;
         }
-        
-        const seasonalVariation = Math.sin(i * 0.5) * 3;
-        const randomNoise = (Math.random() - 0.5) * 4;
-        const value = Math.max(0, baseValue + seasonalVariation + randomNoise);
+        dailyData[date] += point.value;
+      });
 
-        dataPoints.push({
-          timestamp,
-          value: Math.round(value * 100) / 100,
-        });
-      }
+      const aggregatedData: ChartDataPoint[] = Object.entries(dailyData).map(([date, value]) => ({
+        timestamp: new Date(date + 'T00:00:00Z').toISOString(),
+        value: Math.round(value * 100) / 100,
+      }));
 
       return {
         periodId: period.id,
         label: period.label,
-        data: dataPoints,
+        data: aggregatedData.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
         color: period.color,
       };
     });
-  }, [selectedPeriods]);
+  }, [periodDataQueries]);
 
   const handleExport = () => {
+    if (realData.length === 0) return;
+    
+    // Find all unique dates across all periods
+    const allDates = new Set<string>();
+    realData.forEach(dataset => {
+      dataset.data.forEach(point => {
+        allDates.add(new Date(point.timestamp).toLocaleDateString());
+      });
+    });
+    
+    const sortedDates = Array.from(allDates).sort();
+    
     const csvContent = [
-      ['Timestamp', ...selectedPeriods.map(p => `${p.label} (kWh)`)],
-      ...mockData[0]?.data.map((_, index) => [
-        new Date(mockData[0].data[index].timestamp).toLocaleDateString(),
-        ...mockData.map(dataset => dataset.data[index]?.value?.toString() || '0')
-      ]) || []
+      ['Date', ...realData.map(d => `${d.label} (kWh)`)],
+      ...sortedDates.map(date => [
+        date,
+        ...realData.map(dataset => {
+          const point = dataset.data.find(p => 
+            new Date(p.timestamp).toLocaleDateString() === date
+          );
+          return point?.value?.toString() || '0';
+        })
+      ])
     ].map(row => row.join(',')).join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `comparative-analysis-${comparisonType}.csv`;
+    a.download = `comparative-analysis-${comparisonType}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   // Prepare chart data
   const chartData = useMemo(() => {
-    if (mockData.length === 0) return { labels: [], datasets: [] };
+    if (realData.length === 0) return { labels: [], datasets: [] };
 
-    const labels = mockData[0]?.data.map(point => 
-      new Date(point.timestamp).toLocaleDateString()
-    ) || [];
+    // Get all unique dates across all datasets
+    const allDates = new Set<string>();
+    realData.forEach(dataset => {
+      dataset.data.forEach(point => {
+        allDates.add(new Date(point.timestamp).toLocaleDateString());
+      });
+    });
+    
+    const labels = Array.from(allDates).sort();
 
-    const datasets = mockData.map(dataset => ({
+    const datasets = realData.map(dataset => ({
       label: dataset.label,
-      data: dataset.data.map(point => point.value),
-      backgroundColor: chartType === 'bar' ? `${dataset.color}66` : 'transparent',
+      data: labels.map(label => {
+        const point = dataset.data.find(p => 
+          new Date(p.timestamp).toLocaleDateString() === label
+        );
+        return point?.value || 0;
+      }),
+      backgroundColor: dataset.color + '20',
       borderColor: dataset.color,
       borderWidth: 2,
-      fill: chartType === 'line' ? false : true,
-      tension: chartType === 'line' ? 0.4 : 0,
-      pointRadius: chartType === 'line' ? 3 : 0,
     }));
 
     return { labels, datasets };
-  }, [mockData, chartType]);
+  }, [realData]);
 
   const chartOptions = {
     ...defaultChartOptions,
     responsive: true,
     maintainAspectRatio: false,
-    interaction: {
-      mode: 'index' as const,
-      intersect: false,
-    },
-    scales: {
-      ...defaultChartOptions.scales,
-      y: {
-        ...defaultChartOptions.scales?.y,
-        title: {
-          display: true,
-          text: 'Energy Consumption (kWh)',
-          color: '#1e40af',
-          font: {
-            size: 12,
-            weight: 'normal' as const,
-          },
-        },
-        beginAtZero: true,
-      },
-      x: {
-        ...defaultChartOptions.scales?.x,
-        title: {
-          display: true,
-          text: 'Time Period',
-          color: '#1e40af',
-          font: {
-            size: 12,
-            weight: 'normal' as const,
-          },
-        },
-      },
-    },
     plugins: {
       ...defaultChartOptions.plugins,
+      title: {
+        display: true,
+        text: `${comparisonType === 'period' ? 'Period' : comparisonType === 'device' ? 'Device' : 'Metric'} Comparison`
+      },
       legend: {
         display: true,
         position: 'top' as const,
-        labels: {
-          usePointStyle: true,
-          padding: 20,
-        },
-      },
-      tooltip: {
-        ...defaultChartOptions.plugins?.tooltip,
-        callbacks: {
-          label: (context: any) => {
-            const label = context.dataset.label || '';
-            const value = formatAnalyticsValue(context.parsed.y, 'energy');
-            return `${label}: ${value}`;
-          },
-        },
       },
     },
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text: 'Date'
+        }
+      },
+      y: {
+        title: {
+          display: true,
+          text: 'Energy Consumption (kWh)'
+        },
+        beginAtZero: true
+      }
+    }
   };
 
-  if (selectedPeriods.length === 0) {
+  if (isLoading) {
     return (
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-lg font-medium text-secondary-900">Comparative Analysis</h3>
+            <p className="text-sm text-secondary-600">
+              Comparing energy consumption across {comparisonType === 'period' ? 'time periods' : comparisonType}
+            </p>
+          </div>
           <div className="flex items-center space-x-2">
-            <TrendingUp className="h-5 w-5 text-blue-600" />
-            <h3 className="text-lg font-semibold text-gray-900">Comparative Analysis</h3>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+            <span className="text-sm text-secondary-600">Loading comparison data...</span>
           </div>
         </div>
-
-        {/* Controls */}
-        {showControls && (
-          <ComparisonControls
-            selectedPeriods={selectedPeriods}
-            onPeriodsChange={setSelectedPeriods}
-            comparisonType={comparisonType}
-            onComparisonTypeChange={setComparisonType}
-            chartType={chartType}
-            onChartTypeChange={setChartType}
-            isLoading={false}
-          />
-        )}
-
-        <div style={{ height: `${height}px` }} className="flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+        <div className="h-80 flex items-center justify-center">
           <div className="text-center">
-            <Calendar className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-500 mb-1">No periods selected for comparison</p>
-            <p className="text-xs text-gray-400">Select at least one period to start comparing</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+            <p className="text-secondary-600">Generating comparison...</p>
           </div>
         </div>
       </div>
     );
   }
 
-  const ChartComponent = chartType === 'bar' ? Bar : Line;
+  if (hasError || realData.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-lg font-medium text-secondary-900">Comparative Analysis</h3>
+            <p className="text-sm text-secondary-600">
+              Comparing energy consumption across {comparisonType === 'period' ? 'time periods' : comparisonType}
+            </p>
+          </div>
+        </div>
+        <div className="h-80 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-yellow-500 mb-4">
+              <ArrowUpDown className="w-12 h-12 mx-auto" />
+            </div>
+            <p className="text-secondary-600 mb-2">
+              {hasError ? 'Failed to load comparison data' : 'No comparison data available'}
+            </p>
+            <p className="text-sm text-secondary-500">
+              Please select periods to compare and ensure the analytics service has sufficient data.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <TrendingUp className="h-5 w-5 text-blue-600" />
-          <h3 className="text-lg font-semibold text-gray-900">Comparative Analysis</h3>
+    <div className="bg-white rounded-lg shadow-lg p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-lg font-medium text-secondary-900">Comparative Analysis</h3>
+          <p className="text-sm text-secondary-600">
+            Comparing energy consumption across {comparisonType === 'period' ? 'time periods' : comparisonType}
+          </p>
         </div>
-        <button
-          onClick={handleExport}
-          className="flex items-center space-x-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-        >
-          <Download className="h-4 w-4" />
-          <span>Export</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1 text-blue-600">
+            <ArrowUpDown className="w-4 h-4" />
+            <span className="text-sm font-medium">
+              {realData.length} {comparisonType === 'period' ? 'periods' : 'items'} compared
+            </span>
+          </div>
+          <button
+            onClick={handleExport}
+            className="btn-secondary text-sm"
+            disabled={realData.length === 0}
+          >
+            <Download className="w-4 h-4 mr-1" />
+            Export
+          </button>
+        </div>
       </div>
 
       {/* Controls */}
@@ -439,24 +436,59 @@ const ComparativeAnalysis: React.FC<ComparativeAnalysisProps> = ({
           onComparisonTypeChange={setComparisonType}
           chartType={chartType}
           onChartTypeChange={setChartType}
-          isLoading={false}
+          isLoading={isLoading}
         />
       )}
 
-      {/* Statistics */}
-      <ComparisonStats 
-        data={mockData}
-        selectedPeriods={selectedPeriods}
-      />
-
       {/* Chart */}
-      <div style={{ height: `${height}px` }} className="w-full">
-        <ChartComponent 
-          key={`comparative-chart-${chartType}-${selectedPeriods.length}-${selectedPeriods.map(p => p.id).join('-')}`}
-          data={chartData} 
-          options={chartOptions} 
-        />
+      <div style={{ height }}>
+        {chartType === 'bar' ? (
+          <Bar 
+            key={`comparative-${comparisonType}-${chartType}-${selectedPeriods.length}`}
+            data={chartData} 
+            options={chartOptions} 
+          />
+        ) : (
+          <Line 
+            key={`comparative-${comparisonType}-${chartType}-${selectedPeriods.length}`}
+            data={chartData} 
+            options={chartOptions} 
+          />
+        )}
       </div>
+
+      {/* Summary Statistics */}
+      {realData.length > 0 && (
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          {realData.map(dataset => {
+            const totalConsumption = dataset.data.reduce((sum, point) => sum + point.value, 0);
+            const averageDaily = totalConsumption / dataset.data.length;
+            
+            return (
+              <div key={dataset.periodId} className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center space-x-2 mb-1">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: dataset.color }}
+                      />
+                      <p className="text-sm text-gray-600">{dataset.label}</p>
+                    </div>
+                    <p className="text-lg font-semibold text-gray-900">
+                      {formatAnalyticsValue(totalConsumption, 'energy')}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Avg: {formatAnalyticsValue(averageDaily, 'energy')}/day
+                    </p>
+                  </div>
+                  <BarChart3 className="w-8 h-8 text-gray-400" />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

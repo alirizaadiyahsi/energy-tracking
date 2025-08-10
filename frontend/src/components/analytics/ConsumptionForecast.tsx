@@ -1,554 +1,449 @@
 import React, { useState, useMemo } from 'react';
 import { Line } from 'react-chartjs-2';
-import { Download, TrendingUp, Calendar, BarChart3, AlertCircle } from 'lucide-react';
+import { Download, TrendingUp, BarChart3, AlertCircle } from 'lucide-react';
 import { ChartDataPoint } from '../../types';
-import { ChartParams } from '../../types/analytics';
+import { useConsumptionTrends, useForecastData } from '../../hooks/useAnalyticsData';
 import { formatAnalyticsValue } from '../../utils/analyticsTransformers';
 import { defaultChartOptions, chartColors } from '../../utils/chartConfig';
 
-interface ConsumptionForecastProps {
-  params: ChartParams;
-  height?: number;
-  showControls?: boolean;
-  forecastDays?: number;
-  confidenceInterval?: boolean;
-  onParamsChange?: (params: ChartParams) => void;
+interface ForecastDataPoint {
+  timestamp: string;
+  value: number;
 }
 
-interface ForecastControlsProps {
-  params: ChartParams;
-  onParamsChange: (params: ChartParams) => void;
-  forecastDays: number;
-  onForecastDaysChange: (days: number) => void;
-  confidenceInterval: boolean;
-  onConfidenceIntervalChange: (enabled: boolean) => void;
-  isLoading: boolean;
+interface ProcessedData {
+  historical: ForecastDataPoint[];
+  forecast: ForecastDataPoint[];
+  confidenceUpper?: ForecastDataPoint[];
+  confidenceLower?: ForecastDataPoint[];
 }
 
-const ForecastControls: React.FC<ForecastControlsProps> = ({
-  params,
-  onParamsChange,
-  forecastDays,
-  onForecastDaysChange,
-  confidenceInterval,
-  onConfidenceIntervalChange,
-  isLoading,
+interface ForecastProps {
+  organizationId?: string;
+  timeRange?: '1h' | '24h' | '7d' | '30d';
+  showConfidenceInterval?: boolean;
+  deviceIds?: string[];
+}
+
+const ConsumptionForecast: React.FC<ForecastProps> = ({
+  organizationId,
+  timeRange = '7d',
+  showConfidenceInterval = true,
+  deviceIds
 }) => {
-  const forecastOptions = [
-    { value: 7, label: '7 Days' },
-    { value: 14, label: '14 Days' },
-    { value: 30, label: '30 Days' },
-    { value: 90, label: '90 Days' },
-  ];
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'csv' | 'json'>('csv');
 
-  const intervals = [
-    { value: 'hourly', label: 'Hourly' },
-    { value: 'daily', label: 'Daily' },
-  ] as const;
+  // Fetch real data using custom hooks
+  const { data: trendsData, isLoading: trendsLoading, error: trendsError } = useConsumptionTrends({
+    timeRange,
+    interval: 'hourly',
+    deviceId: deviceIds?.[0]
+  });
 
-  return (
-    <div className="flex flex-wrap items-center gap-3 mb-4">
-      <div className="flex items-center space-x-2">
-        <Calendar className="h-4 w-4 text-purple-500" />
-        <select
-          value={params.interval}
-          onChange={(e) => onParamsChange({ ...params, interval: e.target.value as ChartParams['interval'] })}
-          disabled={isLoading}
-          className="text-sm border border-purple-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          {intervals.map(interval => (
-            <option key={interval.value} value={interval.value}>
-              {interval.label}
-            </option>
-          ))}
-        </select>
-      </div>
+  const { data: forecastData, isLoading: forecastLoading, error: forecastError } = useForecastData({
+    timeRange,
+    interval: 'daily',
+    deviceId: deviceIds?.[0],
+    forecastDays: 7,
+    confidenceInterval: showConfidenceInterval
+  });
 
-      <div className="flex items-center space-x-2">
-        <BarChart3 className="h-4 w-4 text-purple-500" />
-        <select
-          value={forecastDays}
-          onChange={(e) => onForecastDaysChange(Number(e.target.value))}
-          disabled={isLoading}
-          className="text-sm border border-purple-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          {forecastOptions.map(option => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <label className="flex items-center space-x-2 text-sm">
-        <input
-          type="checkbox"
-          checked={confidenceInterval}
-          onChange={(e) => onConfidenceIntervalChange(e.target.checked)}
-          className="rounded"
-        />
-        <span>Confidence Interval</span>
-      </label>
-    </div>
-  );
-};
-
-interface ForecastStatsProps {
-  forecastData: ChartDataPoint[];
-  historicalData: ChartDataPoint[];
-  forecastDays: number;
-}
-
-const ForecastStats: React.FC<ForecastStatsProps> = ({ forecastData, historicalData, forecastDays }) => {
-  const stats = useMemo(() => {
-    if (!forecastData || forecastData.length === 0) {
-      return {
-        predictedTotal: 0,
-        averageDaily: 0,
-        trend: 'stable' as const,
-        accuracy: 0,
-        peakForecast: 0,
-      };
-    }
-
-    const forecastValues = forecastData.map(point => point.value);
-    const predictedTotal = forecastValues.reduce((sum, value) => sum + value, 0);
-    const averageDaily = predictedTotal / forecastDays;
-    
-    // Calculate trend based on historical vs forecast
-    const historicalAvg = historicalData.length > 0 
-      ? historicalData.reduce((sum, point) => sum + point.value, 0) / historicalData.length
-      : 0;
-    
-    const forecastAvg = forecastValues.reduce((sum, val) => sum + val, 0) / forecastValues.length;
-    const trend = forecastAvg > historicalAvg * 1.05 ? 'up' : forecastAvg < historicalAvg * 0.95 ? 'down' : 'stable';
-    
-    const accuracy = 85 + Math.random() * 10; // Mock accuracy between 85-95%
-    const peakForecast = Math.max(...forecastValues);
-
-    return {
-      predictedTotal,
-      averageDaily,
-      trend,
-      accuracy,
-      peakForecast,
+  // Process and combine the data
+  const processedData: ProcessedData = useMemo(() => {
+    const result: ProcessedData = {
+      historical: [],
+      forecast: [],
+      confidenceUpper: [],
+      confidenceLower: []
     };
-  }, [forecastData, historicalData, forecastDays]);
 
-  const getTrendIcon = () => {
-    if (stats.trend === 'up') return <TrendingUp className="h-4 w-4 text-red-600" />;
-    if (stats.trend === 'down') return <TrendingUp className="h-4 w-4 text-green-600 transform rotate-180" />;
-    return <div className="h-4 w-4 bg-gray-400 rounded-full" />;
-  };
-
-  const getTrendColor = () => {
-    switch (stats.trend) {
-      case 'up': return 'text-red-600';
-      case 'down': return 'text-green-600';
-      default: return 'text-gray-600';
-    }
-  };
-
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4 p-3 bg-purple-50 rounded-lg">
-      <div className="text-center">
-        <p className="text-xs text-purple-600 font-medium">Predicted Total</p>
-        <p className="text-sm font-semibold text-purple-900">
-          {formatAnalyticsValue(stats.predictedTotal, 'energy')}
-        </p>
-      </div>
-      <div className="text-center">
-        <p className="text-xs text-purple-600 font-medium">Daily Average</p>
-        <p className="text-sm font-semibold text-purple-900">
-          {formatAnalyticsValue(stats.averageDaily, 'energy')}
-        </p>
-      </div>
-      <div className="text-center">
-        <p className="text-xs text-purple-600 font-medium">Peak Forecast</p>
-        <p className="text-sm font-semibold text-purple-900">
-          {formatAnalyticsValue(stats.peakForecast, 'energy')}
-        </p>
-      </div>
-      <div className="text-center">
-        <div className="flex items-center justify-center space-x-1">
-          {getTrendIcon()}
-          <p className="text-xs text-purple-600 font-medium">Trend</p>
-        </div>
-        <p className={`text-xs font-medium capitalize ${getTrendColor()}`}>{stats.trend}</p>
-      </div>
-      <div className="text-center">
-        <p className="text-xs text-purple-600 font-medium">Accuracy</p>
-        <p className="text-sm font-semibold text-purple-900">{stats.accuracy.toFixed(1)}%</p>
-      </div>
-    </div>
-  );
-};
-
-const ConsumptionForecast: React.FC<ConsumptionForecastProps> = ({
-  params,
-  height = 400,
-  showControls = true,
-  forecastDays: initialForecastDays = 30,
-  confidenceInterval: initialConfidenceInterval = true,
-  onParamsChange,
-}) => {
-  const [forecastDays, setForecastDays] = useState(initialForecastDays);
-  const [confidenceInterval, setConfidenceInterval] = useState(initialConfidenceInterval);
-
-  // For now, we'll use mock data since the API structure doesn't match our needs
-  // const { data: forecastData, isLoading, error } = useForecastData({
-  //   ...params,
-  //   forecastDays,
-  //   confidenceInterval,
-  // });
-
-  const isLoading = false;
-  const error = null;
-
-  // Generate mock forecast data for demonstration
-  const mockData = useMemo(() => {
-    const now = new Date();
-    const historicalData: ChartDataPoint[] = [];
-    const forecastedData: ChartDataPoint[] = [];
-    const upperBound: ChartDataPoint[] = [];
-    const lowerBound: ChartDataPoint[] = [];
-
-    // Generate 30 days of historical data
-    const historicalDays = 30;
-    const intervalMs = params.interval === 'hourly' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-    const pointsPerDay = params.interval === 'hourly' ? 24 : 1;
-    
-    // Historical data
-    for (let i = historicalDays * pointsPerDay; i >= 0; i--) {
-      const timestamp = new Date(now.getTime() - (i * intervalMs)).toISOString();
-      const baseValue = 25 + Math.sin(i * 0.1) * 5; // Base consumption with seasonal variation
-      const dailyVariation = Math.sin(i * 0.3) * 3; // Daily variation
-      const randomNoise = (Math.random() - 0.5) * 4; // Random noise
-      const value = Math.max(0, baseValue + dailyVariation + randomNoise);
-      
-      historicalData.push({
-        timestamp,
-        value: Math.round(value * 100) / 100,
-      });
+    // Process historical trends data
+    if (trendsData && Array.isArray(trendsData)) {
+      result.historical = trendsData.map((point: ChartDataPoint) => ({
+        timestamp: point.timestamp,
+        value: point.value || 0
+      }));
     }
 
-    // Forecast data
-    const trend = 1.02; // 2% growth trend
-    const lastHistoricalValue = historicalData[historicalData.length - 1]?.value || 25;
-    
-    for (let i = 1; i <= forecastDays * pointsPerDay; i++) {
-      const timestamp = new Date(now.getTime() + (i * intervalMs)).toISOString();
-      const trendValue = lastHistoricalValue * Math.pow(trend, i / (pointsPerDay * 30)); // Monthly trend
-      const seasonalVariation = Math.sin(i * 0.1) * 3;
-      const forecastValue = Math.max(0, trendValue + seasonalVariation);
+    // Process forecast data - ForecastData is a single object, not an array
+    if (forecastData) {
+      // Generate forecast points based on the forecast data
+      const now = new Date();
+      const forecastDays = 7;
       
-      // Confidence intervals
-      const uncertaintyFactor = Math.min(0.3, i / (forecastDays * pointsPerDay) * 0.3); // Increasing uncertainty
-      const upper = forecastValue * (1 + uncertaintyFactor);
-      const lower = forecastValue * (1 - uncertaintyFactor);
-
-      forecastedData.push({
-        timestamp,
-        value: Math.round(forecastValue * 100) / 100,
-      });
-
-      if (confidenceInterval) {
-        upperBound.push({
+      for (let i = 1; i <= forecastDays; i++) {
+        const timestamp = new Date(now.getTime() + (i * 24 * 60 * 60 * 1000)).toISOString();
+        result.forecast.push({
           timestamp,
-          value: Math.round(upper * 100) / 100,
+          value: forecastData.predicted_consumption || 0
         });
-        lowerBound.push({
-          timestamp,
-          value: Math.round(lower * 100) / 100,
-        });
+
+        if (showConfidenceInterval && forecastData.confidence_interval) {
+          result.confidenceUpper?.push({
+            timestamp,
+            value: forecastData.confidence_interval.upper || 0
+          });
+
+          result.confidenceLower?.push({
+            timestamp,
+            value: forecastData.confidence_interval.lower || 0
+          });
+        }
       }
     }
 
-    return {
-      historical: historicalData,
-      forecast: forecastedData,
-      upperBound,
-      lowerBound,
-    };
-  }, [params.interval, forecastDays, confidenceInterval]);
+    return result;
+  }, [trendsData, forecastData, showConfidenceInterval]);
 
-  const handleExport = () => {
-    if (!mockData) return;
-    
-    const csvContent = [
-      ['Timestamp', 'Type', 'Energy Consumption (kWh)', 'Upper Bound', 'Lower Bound'],
-      ...mockData.historical.map(point => [
-        new Date(point.timestamp).toISOString(),
-        'Historical',
-        point.value.toString(),
-        '',
-        ''
-      ]),
-      ...mockData.forecast.map((point, index) => [
-        new Date(point.timestamp).toISOString(),
-        'Forecast',
-        point.value.toString(),
-        mockData.upperBound[index]?.value?.toString() || '',
-        mockData.lowerBound[index]?.value?.toString() || ''
-      ])
-    ].map(row => row.join(',')).join('\n');
+  // Chart data configuration
+  const chartData = useMemo(() => {
+    const datasets: any[] = [];
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `consumption-forecast-${forecastDays}days.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {showControls && onParamsChange && (
-          <ForecastControls
-            params={params}
-            onParamsChange={onParamsChange}
-            forecastDays={forecastDays}
-            onForecastDaysChange={setForecastDays}
-            confidenceInterval={confidenceInterval}
-            onConfidenceIntervalChange={setConfidenceInterval}
-            isLoading={true}
-          />
-        )}
-        <div className={`h-${height} flex items-center justify-center bg-purple-50 rounded-lg`}>
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-2"></div>
-            <p className="text-sm text-purple-500">Generating forecast...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-4">
-        {showControls && onParamsChange && (
-          <ForecastControls
-            params={params}
-            onParamsChange={onParamsChange}
-            forecastDays={forecastDays}
-            onForecastDaysChange={setForecastDays}
-            confidenceInterval={confidenceInterval}
-            onConfidenceIntervalChange={setConfidenceInterval}
-            isLoading={false}
-          />
-        )}
-        <div className={`h-${height} flex items-center justify-center bg-red-50 rounded-lg border border-red-200`}>
-          <div className="text-center">
-            <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
-            <p className="text-sm text-red-600 mb-2">Failed to generate forecast</p>
-            <p className="text-xs text-red-500">Unable to load forecast data</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Use mock data since API structure doesn't match component needs yet
-  const data = mockData;
-  
-  if (!data.historical || !data.forecast) {
-    return (
-      <div className="space-y-4">
-        {showControls && onParamsChange && (
-          <ForecastControls
-            params={params}
-            onParamsChange={onParamsChange}
-            forecastDays={forecastDays}
-            onForecastDaysChange={setForecastDays}
-            confidenceInterval={confidenceInterval}
-            onConfidenceIntervalChange={setConfidenceInterval}
-            isLoading={false}
-          />
-        )}
-        <div className={`h-${height} flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300`}>
-          <div className="text-center">
-            <p className="text-sm text-secondary-500 mb-1">No forecast data available</p>
-            <p className="text-xs text-secondary-400">Insufficient historical data for forecasting</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Prepare chart data
-  const allTimestamps = [...data.historical, ...data.forecast].map(point => point.timestamp);
-  
-  const chartData = {
-    labels: allTimestamps,
-    datasets: [
-      {
+    // Historical data with error handling
+    if (processedData.historical.length > 0) {
+      datasets.push({
         label: 'Historical',
-        data: [
-          ...data.historical.map((point: ChartDataPoint) => ({ x: point.timestamp, y: point.value })),
-          ...Array(data.forecast.length).fill({ x: null, y: null })
-        ],
-        borderColor: chartColors.energy.border,
-        backgroundColor: 'transparent',
-        fill: false,
-        tension: 0.4,
-        pointRadius: 1,
-        borderWidth: 2,
-      },
-      {
-        label: 'Forecast',
-        data: [
-          ...Array(data.historical.length).fill({ x: null, y: null }),
-          ...data.forecast.map((point: ChartDataPoint) => ({ x: point.timestamp, y: point.value }))
-        ],
+        data: processedData.historical.map(point => {
+          const timestamp = new Date(point.timestamp);
+          return {
+            x: isNaN(timestamp.getTime()) ? Date.now() : timestamp.getTime(),
+            y: typeof point.value === 'number' ? point.value : 0
+          };
+        }),
         borderColor: chartColors.primary.border,
-        backgroundColor: 'transparent',
-        fill: false,
+        backgroundColor: chartColors.primary.background,
         tension: 0.4,
-        pointRadius: 2,
-        borderWidth: 2,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+      });
+    }
+
+    // Forecast data with error handling
+    if (processedData.forecast.length > 0) {
+      datasets.push({
+        label: 'Forecast',
+        data: processedData.forecast.map(point => {
+          const timestamp = new Date(point.timestamp);
+          return {
+            x: isNaN(timestamp.getTime()) ? Date.now() : timestamp.getTime(),
+            y: typeof point.value === 'number' ? point.value : 0
+          };
+        }),
+        borderColor: chartColors.energy.border,
+        backgroundColor: chartColors.energy.background,
         borderDash: [5, 5],
-      },
-    ],
-  };
+        tension: 0.4,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+      });
+    }
 
-  // Add confidence interval if enabled
-  if (confidenceInterval && data.upperBound && data.lowerBound) {
-    chartData.datasets.push(
-      {
-        label: 'Upper Bound',
-        data: [
-          ...Array(data.historical.length).fill({ x: null, y: null }),
-          ...data.upperBound.map((point: ChartDataPoint) => ({ x: point.timestamp, y: point.value }))
-        ],
-        borderColor: 'rgba(59, 130, 246, 0.3)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    // Confidence interval - upper bound
+    if (showConfidenceInterval && processedData.confidenceUpper && processedData.confidenceUpper.length > 0) {
+      datasets.push({
+        label: 'Upper Confidence',
+        data: processedData.confidenceUpper.map(point => {
+          const timestamp = new Date(point.timestamp);
+          return {
+            x: isNaN(timestamp.getTime()) ? Date.now() : timestamp.getTime(),
+            y: typeof point.value === 'number' ? point.value : 0
+          };
+        }),
+        borderColor: 'rgba(255, 193, 7, 0.3)',
+        backgroundColor: 'rgba(255, 193, 7, 0.1)',
+        fill: '+1',
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        borderWidth: 1,
+      });
+    }
+
+    // Confidence interval - lower bound
+    if (showConfidenceInterval && processedData.confidenceLower && processedData.confidenceLower.length > 0) {
+      datasets.push({
+        label: 'Lower Confidence',
+        data: processedData.confidenceLower.map(point => {
+          const timestamp = new Date(point.timestamp);
+          return {
+            x: isNaN(timestamp.getTime()) ? Date.now() : timestamp.getTime(),
+            y: typeof point.value === 'number' ? point.value : 0
+          };
+        }),
+        borderColor: 'rgba(255, 193, 7, 0.3)',
+        backgroundColor: 'rgba(255, 193, 7, 0.1)',
         fill: false,
         tension: 0.4,
         pointRadius: 0,
+        pointHoverRadius: 0,
         borderWidth: 1,
-      },
-      {
-        label: 'Lower Bound',
-        data: [
-          ...Array(data.historical.length).fill({ x: null, y: null }),
-          ...data.lowerBound.map((point: ChartDataPoint) => ({ x: point.timestamp, y: point.value }))
-        ],
-        borderColor: 'rgba(59, 130, 246, 0.3)',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        fill: false,
-        tension: 0.4,
-        pointRadius: 0,
-        borderWidth: 1,
-      }
-    );
-  }
+      });
+    }
 
-  const options = {
+    return {
+      datasets
+    };
+  }, [processedData, showConfidenceInterval]);
+
+  const chartOptions = useMemo(() => ({
     ...defaultChartOptions,
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      ...defaultChartOptions.scales,
-      y: {
-        ...defaultChartOptions.scales?.y,
-        title: {
-          display: true,
-          text: 'Energy Consumption (kWh)',
-          color: '#7c3aed',
-          font: {
-            size: 12,
-            weight: 'normal' as const,
-          },
-        },
-        beginAtZero: true,
-      },
-      x: {
-        ...defaultChartOptions.scales?.x,
-        title: {
-          display: true,
-          text: 'Time',
-          color: '#7c3aed',
-          font: {
-            size: 12,
-            weight: 'normal' as const,
-          },
-        },
-      },
-    },
     plugins: {
       ...defaultChartOptions.plugins,
+      title: {
+        display: true,
+        text: 'Energy Consumption Forecast',
+        font: {
+          size: 16,
+          weight: 'bold' as const
+        }
+      },
       legend: {
         display: true,
         position: 'top' as const,
         labels: {
-          usePointStyle: true,
-          padding: 20,
-          filter: function(legendItem: any) {
-            // Hide confidence interval bounds from legend
-            return !legendItem.text.includes('Bound');
-          },
-        },
-      },
-      tooltip: {
-        ...defaultChartOptions.plugins?.tooltip,
-        callbacks: {
-          label: (context: any) => {
-            const label = context.dataset.label || '';
-            const value = formatAnalyticsValue(context.parsed.y, 'energy');
-            return `${label}: ${value}`;
-          },
-        },
-      },
+          filter: (legendItem: any) => {
+            // Hide confidence interval labels for cleaner legend
+            return !legendItem.text.includes('Confidence');
+          }
+        }
+      }
     },
+    scales: {
+      x: {
+        type: 'time' as const,
+        time: {
+          displayFormats: {
+            hour: 'MMM dd HH:mm',
+            day: 'MMM dd',
+            week: 'MMM dd',
+            month: 'MMM yyyy'
+          }
+        },
+        title: {
+          display: true,
+          text: 'Time'
+        }
+      },
+      y: {
+        title: {
+          display: true,
+          text: 'Energy Consumption (kWh)'
+        },
+        beginAtZero: true
+      }
+    },
+    interaction: {
+      intersect: false,
+      mode: 'index' as const
+    }
+  }), []);
+
+  // Export functionality
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const dataToExport = {
+        historical: processedData.historical,
+        forecast: processedData.forecast,
+        ...(showConfidenceInterval && {
+          confidenceUpper: processedData.confidenceUpper,
+          confidenceLower: processedData.confidenceLower
+        }),
+        metadata: {
+          exportedAt: new Date().toISOString(),
+          timeRange,
+          organizationId,
+          deviceIds
+        }
+      };
+
+      if (exportFormat === 'csv') {
+        // Convert to CSV format
+        const csvData = [
+          ['Timestamp', 'Type', 'Value'],
+          ...processedData.historical.map(item => [item.timestamp, 'Historical', item.value]),
+          ...processedData.forecast.map(item => [item.timestamp, 'Forecast', item.value])
+        ];
+        
+        const csvContent = csvData.map(row => row.join(',')).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `consumption-forecast-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        // Export as JSON
+        const jsonContent = JSON.stringify(dataToExport, null, 2);
+        const blob = new Blob([jsonContent], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `consumption-forecast-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
-  return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <TrendingUp className="h-5 w-5 text-purple-600" />
-          <h3 className="text-lg font-semibold text-gray-900">Consumption Forecast</h3>
+  // Calculate summary statistics
+  const stats = useMemo(() => {
+    const currentAvg = processedData.historical.length > 0 
+      ? processedData.historical.reduce((sum, point) => sum + point.value, 0) / processedData.historical.length 
+      : 0;
+    
+    const forecastAvg = processedData.forecast.length > 0 
+      ? processedData.forecast.reduce((sum, point) => sum + point.value, 0) / processedData.forecast.length 
+      : 0;
+    
+    const projectedChange = currentAvg > 0 ? ((forecastAvg - currentAvg) / currentAvg) * 100 : 0;
+
+    return {
+      currentAvg: Math.round(currentAvg * 100) / 100,
+      forecastAvg: Math.round(forecastAvg * 100) / 100,
+      projectedChange: Math.round(projectedChange * 100) / 100,
+      totalDataPoints: processedData.historical.length + processedData.forecast.length
+    };
+  }, [processedData]);
+
+  if (trendsLoading || forecastLoading) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="flex items-center space-x-2">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span className="text-gray-600">Loading forecast data...</span>
+          </div>
         </div>
-        <button
-          onClick={handleExport}
-          className="flex items-center space-x-1 px-3 py-1 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-        >
-          <Download className="h-4 w-4" />
-          <span>Export</span>
-        </button>
+      </div>
+    );
+  }
+
+  if (trendsError || forecastError) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to Load Data</h3>
+            <p className="text-gray-600">
+              {String(trendsError || forecastError || 'Unable to load forecast data. Please try again.')}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (stats.totalDataPoints === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Data Available</h3>
+            <p className="text-gray-600">
+              No consumption data available for the selected time range.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow-md p-6">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center space-x-2">
+          <TrendingUp className="h-6 w-6 text-blue-600" />
+          <h3 className="text-xl font-semibold text-gray-900">Consumption Forecast</h3>
+        </div>
+        <div className="flex items-center space-x-4">
+          <select
+            value={exportFormat}
+            onChange={(e) => setExportFormat(e.target.value as 'csv' | 'json')}
+            className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+          >
+            <option value="csv">CSV</option>
+            <option value="json">JSON</option>
+          </select>
+          <button
+            onClick={handleExport}
+            disabled={isExporting}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            <Download className="h-4 w-4" />
+            <span>{isExporting ? 'Exporting...' : 'Export'}</span>
+          </button>
+        </div>
       </div>
 
-      {/* Controls */}
-      {showControls && onParamsChange && (
-        <ForecastControls
-          params={params}
-          onParamsChange={onParamsChange}
-          forecastDays={forecastDays}
-          onForecastDaysChange={setForecastDays}
-          confidenceInterval={confidenceInterval}
-          onConfidenceIntervalChange={setConfidenceInterval}
-          isLoading={isLoading}
-        />
-      )}
-
-      {/* Statistics */}
-      <ForecastStats 
-        forecastData={data.forecast} 
-        historicalData={data.historical}
-        forecastDays={forecastDays}
-      />
+      {/* Summary Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="text-sm font-medium text-gray-500">Current Average</div>
+          <div className="text-2xl font-bold text-gray-900">
+            {formatAnalyticsValue(stats.currentAvg, 'energy')}
+          </div>
+        </div>
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="text-sm font-medium text-gray-500">Forecast Average</div>
+          <div className="text-2xl font-bold text-gray-900">
+            {formatAnalyticsValue(stats.forecastAvg, 'energy')}
+          </div>
+        </div>
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="text-sm font-medium text-gray-500">Projected Change</div>
+          <div className={`text-2xl font-bold ${stats.projectedChange > 0 ? 'text-red-600' : stats.projectedChange < 0 ? 'text-green-600' : 'text-gray-900'}`}>
+            {stats.projectedChange > 0 ? '+' : ''}{stats.projectedChange}%
+          </div>
+        </div>
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="text-sm font-medium text-gray-500">Data Points</div>
+          <div className="text-2xl font-bold text-gray-900">
+            {stats.totalDataPoints.toLocaleString()}
+          </div>
+        </div>
+      </div>
 
       {/* Chart */}
-      <div style={{ height: `${height}px` }} className="w-full">
+      <div className="h-96">
         <Line 
-          key={`forecast-chart-${forecastDays}-${confidenceInterval}`}
+          key={`forecast-chart-${organizationId}-${timeRange}-${Date.now()}`}
           data={chartData} 
-          options={options} 
+          options={chartOptions} 
         />
+      </div>
+
+      {/* Legend and Notes */}
+      <div className="mt-4 text-sm text-gray-600">
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-1 bg-blue-600"></div>
+            <span>Historical Data</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-1 border-t-2 border-dashed border-green-600"></div>
+            <span>Forecast</span>
+          </div>
+          {showConfidenceInterval && (
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-1 bg-yellow-200"></div>
+              <span>Confidence Interval</span>
+            </div>
+          )}
+        </div>
+        <p className="mt-2">
+          Forecast is based on historical consumption patterns and may vary based on external factors.
+          {showConfidenceInterval && ' Confidence intervals show the range of likely outcomes.'}
+        </p>
       </div>
     </div>
   );

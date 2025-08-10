@@ -56,42 +56,34 @@ class RealtimeAnomalyDetector:
         self._running = False
         self._create_initial_alerts()
     
-    def _create_initial_alerts(self):
-        """Create some initial sample alerts"""
-        devices = [
+    async def _get_real_devices(self):
+        """Get real devices from data ingestion service"""
+        try:
+            import httpx
+            async with httpx.AsyncClient() as client:
+                response = await client.get("http://data-ingestion:8001/api/v1/devices", timeout=5.0)
+                devices_data = response.json()
+                if devices_data.get("success") and devices_data.get("data"):
+                    devices = []
+                    for device in devices_data["data"]:
+                        devices.append((device.get("id"), device.get("name", "Unknown Device")))
+                    return devices
+        except Exception as e:
+            logger.warning(f"Failed to get real devices: {e}")
+        
+        # Fallback to some default device patterns if service is unavailable
+        return [
             ("mock-hvac-001", "HVAC System - Building A"),
             ("mock-lighting-001", "Lighting System - Floor 2"),
             ("mock-server-001", "Server Room - Rack 1"),
             ("mock-industrial-001", "Industrial Equipment - Line 3"),
             ("mock-appliance-001", "Kitchen Appliances - Main")
         ]
-        
-        anomaly_types = [
-            ("high_power_consumption", "warning", "Power consumption is 3.2x normal levels"),
-            ("voltage_fluctuation", "warning", "Voltage readings are outside normal range"),
-            ("power_drop", "info", "Power consumption dropped below expected levels"),
-            ("sustained_high_load", "warning", "Device operating at sustained high load")
-        ]
-        
-        # Create 2-3 recent alerts
-        for i in range(random.randint(2, 3)):
-            device_id, device_name = random.choice(devices)
-            anomaly_type, severity, base_message = random.choice(anomaly_types)
-            
-            alert_id = f"alert-{device_id}-{anomaly_type}-{int(datetime.utcnow().timestamp()) - random.randint(60, 1800)}"
-            created_time = datetime.utcnow() - timedelta(minutes=random.randint(1, 30))
-            
-            alert = AnomalyAlert(
-                alert_id=alert_id,
-                device_id=device_id,
-                device_name=device_name,
-                anomaly_type=anomaly_type,
-                severity=severity,
-                message=f"{base_message} for {device_name}",
-                created_at=created_time
-            )
-            
-            self.alerts.append(alert)
+
+    def _create_initial_alerts(self):
+        """Create some initial sample alerts - will be replaced by real device data on first monitoring cycle"""
+        # Start with empty alerts list - real alerts will be populated from actual device data
+        pass
     
     async def start_monitoring(self):
         """Start the monitoring loop"""
@@ -121,14 +113,9 @@ class RealtimeAnomalyDetector:
             logger.error(f"Error creating new anomaly: {e}")
     
     async def _create_random_alert(self):
-        """Create a random anomaly alert"""
-        devices = [
-            ("mock-hvac-001", "HVAC System - Building A"),
-            ("mock-lighting-001", "Lighting System - Floor 2"), 
-            ("mock-server-001", "Server Room - Rack 1"),
-            ("mock-industrial-001", "Industrial Equipment - Line 3"),
-            ("mock-appliance-001", "Kitchen Appliances - Main")
-        ]
+        """Create a random anomaly alert using real device data"""
+        # Get real devices from data ingestion service
+        devices = await self._get_real_devices()
         
         anomaly_types = [
             ("high_power_consumption", "warning", "Detected abnormally high power consumption"),
@@ -153,10 +140,29 @@ class RealtimeAnomalyDetector:
         
         alert_id = f"alert-{device_id}-{anomaly_type}-{int(datetime.utcnow().timestamp())}"
         
-        power_values = [23.5, 45.2, 78.9, 120.3, 156.7, 89.4]
-        voltage_values = [235.2, 241.8, 228.9, 246.1, 252.3]
-        
-        message = f"{base_message} - Power: {random.choice(power_values)}W, Voltage: {random.choice(voltage_values)}V"
+        # Get real power/voltage data from the device if available
+        try:
+            import httpx
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"http://data-ingestion:8001/api/v1/devices/{device_id}", timeout=3.0)
+                device_data = response.json()
+                if device_data.get("success") and device_data.get("data"):
+                    device = device_data["data"]
+                    power = device.get("power", 0)
+                    voltage = device.get("voltage", 0)
+                    current = device.get("current", 0)
+                    message = f"{base_message} - Power: {power}W, Voltage: {voltage}V, Current: {current}A"
+                else:
+                    # Fallback to default values
+                    power_values = [23.5, 45.2, 78.9, 120.3, 156.7, 89.4]
+                    voltage_values = [235.2, 241.8, 228.9, 246.1, 252.3]
+                    message = f"{base_message} - Power: {random.choice(power_values)}W, Voltage: {random.choice(voltage_values)}V"
+        except Exception as e:
+            logger.warning(f"Failed to get real device data for alert: {e}")
+            # Fallback to mock values
+            power_values = [23.5, 45.2, 78.9, 120.3, 156.7, 89.4]
+            voltage_values = [235.2, 241.8, 228.9, 246.1, 252.3]
+            message = f"{base_message} - Power: {random.choice(power_values)}W, Voltage: {random.choice(voltage_values)}V"
         
         alert = AnomalyAlert(
             alert_id=alert_id,
