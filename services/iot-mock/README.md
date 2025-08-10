@@ -1,6 +1,6 @@
 # IoT Mock Service
 
-A comprehensive mock IoT service that simulates energy monitoring devices for the Energy Tracking Platform. This service provides realistic device data streams and device management capabilities.
+A comprehensive IoT mock service that simulates energy monitoring devices for the Energy Tracking Platform. This service provides realistic device data streams and device management capabilities.
 
 ## Features
 

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class MockDevice:
-    """Represents a mock IoT device"""
+    """Represents an IoT mock device"""
     
     def __init__(
         self,
@@ -253,7 +253,7 @@ class MockDevice:
 
 
 class MockDeviceManager:
-    """Manages mock IoT devices"""
+    """Manages IoT mock devices"""
     
     def __init__(self):
         self.devices: Dict[str, MockDevice] = {}

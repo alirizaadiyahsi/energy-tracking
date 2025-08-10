@@ -19,6 +19,9 @@ class DeviceService:
     """Service class for device management operations"""
     
     def __init__(self):
+        # Import here to avoid circular imports
+        from services.device_event_publisher import device_event_publisher
+        self.event_publisher = device_event_publisher
         self.logger = logger
 
     async def create_device(
@@ -85,7 +88,7 @@ class DeviceService:
             self.logger.info(f"Created device: {device_id}")
             
             # Convert to response format
-            return DeviceResponse(
+            device_response = DeviceResponse(
                 id=str(created_device.id),
                 name=created_device.name,
                 type=created_device.device_type,
@@ -101,6 +104,30 @@ class DeviceService:
                 updated_at=created_device.updated_at,
                 last_seen=created_device.last_seen
             )
+            
+            # Publish device created event
+            self.logger.error("DEBUG: About to publish device created event")
+            try:
+                # Convert device response to dict and handle datetime serialization
+                device_dict = device_response.model_dump()
+                self.logger.info(f"Converting device response to dict for device {device_id}")
+                # Convert datetime objects to ISO strings for JSON serialization
+                for key, value in device_dict.items():
+                    if hasattr(value, 'isoformat'):  # datetime objects
+                        device_dict[key] = value.isoformat() + "Z" if value else None
+                
+                self.logger.error(f"DEBUG: Calling event_publisher.publish_device_created for device {device_id}")
+                await self.event_publisher.publish_device_created(
+                    device_id=device_id,
+                    device_data=device_dict
+                )
+                self.logger.error(f"DEBUG: Successfully called event_publisher.publish_device_created for device {device_id}")
+            except Exception as e:
+                self.logger.warning(f"Failed to publish device created event: {e}")
+                import traceback
+                self.logger.warning(f"Traceback: {traceback.format_exc()}")
+            
+            return device_response
             
         except Exception as e:
             await db.rollback()
@@ -204,7 +231,7 @@ class DeviceService:
             
             self.logger.info(f"Updated device: {device_id}")
             
-            return DeviceResponse(
+            device_response = DeviceResponse(
                 id=str(updated_device.id),
                 name=updated_device.name,
                 type=updated_device.device_type,
@@ -221,6 +248,24 @@ class DeviceService:
                 last_seen=updated_device.last_seen
             )
             
+            # Publish device updated event
+            try:
+                # Convert device response to dict and handle datetime serialization
+                device_dict = device_response.model_dump()
+                # Convert datetime objects to ISO strings for JSON serialization
+                for key, value in device_dict.items():
+                    if hasattr(value, 'isoformat'):  # datetime objects
+                        device_dict[key] = value.isoformat() + "Z" if value else None
+                
+                await self.event_publisher.publish_device_updated(
+                    device_id=device_id,
+                    device_data=device_dict
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to publish device updated event: {e}")
+            
+            return device_response
+            
         except Exception as e:
             await db.rollback()
             self.logger.error(f"Error updating device {device_id}: {e}")
@@ -229,7 +274,7 @@ class DeviceService:
     async def delete_device(self, db: AsyncSession, device_id: str) -> bool:
         """Delete a device by ID"""
         try:
-            # Check if device exists
+            # Check if device exists and get its data for the event
             existing_device = await self.get_device(db, device_id)
             if not existing_device:
                 return False
@@ -246,6 +291,23 @@ class DeviceService:
             
             if deleted_count > 0:
                 self.logger.info(f"Deleted device: {device_id}")
+                
+                # Publish device deleted event
+                try:
+                    # Convert device response to dict and handle datetime serialization
+                    device_dict = existing_device.model_dump()
+                    # Convert datetime objects to ISO strings for JSON serialization
+                    for key, value in device_dict.items():
+                        if hasattr(value, 'isoformat'):  # datetime objects
+                            device_dict[key] = value.isoformat() + "Z" if value else None
+                    
+                    await self.event_publisher.publish_device_deleted(
+                        device_id=device_id,
+                        device_data=device_dict
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Failed to publish device deleted event: {e}")
+                
                 return True
             
             return False

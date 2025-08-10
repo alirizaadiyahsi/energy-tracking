@@ -18,7 +18,7 @@ def print_header():
     print("🚀 IoT Mock Service Setup")
     print("=" * 50)
     print("Welcome to the Energy Tracking IoT Mock Service!")
-    print("This tool will help you set up and test the mock IoT service.")
+    print("This tool will help you set up and test the IoT mock service.")
     print()
 
 

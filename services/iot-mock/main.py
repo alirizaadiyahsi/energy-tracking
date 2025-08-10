@@ -21,6 +21,7 @@ from api.routes import router as api_router
 from core.config import settings
 from services.device_simulator import DeviceSimulator
 from services.mock_device_manager import MockDeviceManager
+from services.device_event_listener import DeviceEventListener
 
 # Configure logging
 logging.basicConfig(
@@ -32,12 +33,13 @@ logger = logging.getLogger(__name__)
 # Global variables for service management
 device_simulator: DeviceSimulator = None
 device_manager: MockDeviceManager = None
+device_event_listener: DeviceEventListener = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    global device_simulator, device_manager
+    global device_simulator, device_manager, device_event_listener
     
     try:
         # Startup
@@ -51,6 +53,9 @@ async def lifespan(app: FastAPI):
         device_simulator = DeviceSimulator(device_manager)
         await device_simulator.start()
         
+        # Initialize device event listener
+        device_event_listener = DeviceEventListener(device_manager)
+        
         # Add default devices
         await device_manager.add_default_devices()
         
@@ -59,6 +64,7 @@ async def lifespan(app: FastAPI):
         set_services(device_manager, device_simulator)
         
         logger.info("IoT Mock Service started successfully")
+        logger.info("Device event listener is now listening for real device events")
         
         yield
         
@@ -68,6 +74,9 @@ async def lifespan(app: FastAPI):
     finally:
         # Shutdown
         logger.info("Shutting down IoT Mock Service...")
+        
+        if device_event_listener:
+            device_event_listener.cleanup()
         
         if device_simulator:
             await device_simulator.stop()
@@ -81,7 +90,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="IoT Mock Service",
-    description="Mock IoT device service for energy tracking platform",
+    description="IoT mock device service for energy tracking platform",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -105,7 +114,7 @@ async def root():
     return {
         "message": "IoT Mock Service",
         "version": "1.0.0",
-        "description": "Mock IoT device service for energy tracking platform"
+        "description": "IoT mock device service for energy tracking platform"
     }
 
 
