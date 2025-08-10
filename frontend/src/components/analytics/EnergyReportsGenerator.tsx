@@ -342,18 +342,18 @@ const EnergyReportsGenerator: React.FC<EnergyReportsGeneratorProps> = () => {
           {/* Template Selection */}
           <div className="lg:col-span-2 space-y-4">
             <h4 className="text-md font-medium text-gray-900">Select Report Template</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-fr">
               {reportTemplates.map((template) => (
                 <div
                   key={template.id}
                   onClick={() => handleTemplateSelect(template.id)}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
+      className={`h-full p-4 border rounded-lg cursor-pointer transition-all flex flex-col ${
                     selectedTemplate === template.id
                       ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  <div className="flex items-start space-x-3">
+      <div className="flex items-start space-x-3 flex-1">
                     <div className={`p-2 rounded-lg ${getCategoryColor(template.category)}`}>
                       {template.icon}
                     </div>
