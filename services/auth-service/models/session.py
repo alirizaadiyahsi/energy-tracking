@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from core.database import Base
-from sqlalchemy import Column, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -16,6 +16,7 @@ class Session(Base):
     token = Column(String(255), nullable=False)
     device = Column(String(100), nullable=True)
     location = Column(String(100), nullable=True)
+    remember_me = Column(Boolean, default=False, nullable=False)
     expires_at = Column(DateTime, nullable=False)
     revoked = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

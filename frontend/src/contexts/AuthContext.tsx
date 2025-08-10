@@ -159,7 +159,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (authService.isAuthenticated()) {
         try {
           const user = await authService.getCurrentUser();
-          const token = localStorage.getItem('accessToken');
+          const token = authService.getStoredToken('accessToken');
           dispatch({
             type: 'LOGIN_SUCCESS',
             payload: {
@@ -169,8 +169,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           });
         } catch (error) {
           // Token might be expired, clear it
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
+          authService.clearTokens();
           dispatch({ type: 'LOGIN_FAILURE' });
         }
       } else {

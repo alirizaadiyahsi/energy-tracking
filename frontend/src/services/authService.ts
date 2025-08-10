@@ -2,14 +2,54 @@ import authApi from './authApi';
 import { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, User, AuthServiceLoginResponse, AuthServiceRegisterResponse } from '../types';
 
 class AuthService {
+  public storeTokens(accessToken: string, refreshToken: string, rememberMe: boolean = false): void {
+    if (rememberMe) {
+      // For remember me, store in localStorage for persistence across browser sessions
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('rememberMe', 'true');
+      // Clear any sessionStorage tokens
+      sessionStorage.removeItem('accessToken');
+      sessionStorage.removeItem('refreshToken');
+    } else {
+      // For regular login, store in sessionStorage (expires when browser is closed)
+      sessionStorage.setItem('accessToken', accessToken);
+      sessionStorage.setItem('refreshToken', refreshToken);
+      localStorage.removeItem('rememberMe');
+      // Clear any localStorage tokens  
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+    }
+  }
+
+  public getStoredToken(tokenType: 'accessToken' | 'refreshToken'): string | null {
+    // Check localStorage first (remember me tokens)
+    const localToken = localStorage.getItem(tokenType);
+    if (localToken) {
+      return localToken;
+    }
+    
+    // Then check sessionStorage (regular session tokens)
+    return sessionStorage.getItem(tokenType);
+  }
+
+  public clearTokens(): void {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('rememberMe');
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('refreshToken');
+  }
+
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     const response = await authApi.post<AuthServiceLoginResponse>('/auth/login', credentials);
     
     // Auth service returns direct response, not wrapped in ApiResponse
     if (response.data && response.data.access_token) {
       const { access_token, refresh_token } = response.data;
-      localStorage.setItem('accessToken', access_token);
-      localStorage.setItem('refreshToken', refresh_token);
+      
+      // Store tokens based on remember me preference
+      this.storeTokens(access_token, refresh_token, credentials.remember_me || false);
       
       // Get user details from /auth/me endpoint
       try {
@@ -72,8 +112,7 @@ class AuthService {
     try {
       await authApi.post('/auth/logout');
     } finally {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      this.clearTokens();
     }
   }
 
@@ -96,7 +135,7 @@ class AuthService {
   }
 
   async refreshToken(): Promise<string> {
-    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshToken = this.getStoredToken('refreshToken');
     if (!refreshToken) {
       throw new Error('No refresh token available');
     }
@@ -107,7 +146,13 @@ class AuthService {
 
     if (response.data && response.data.access_token) {
       const { access_token } = response.data;
-      localStorage.setItem('accessToken', access_token);
+      // Store the new access token in the same location as the refresh token
+      const isRememberMe = localStorage.getItem('rememberMe') === 'true';
+      if (isRememberMe) {
+        localStorage.setItem('accessToken', access_token);
+      } else {
+        sessionStorage.setItem('accessToken', access_token);
+      }
       return access_token;
     }
 
@@ -115,7 +160,7 @@ class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('accessToken');
+    return !!this.getStoredToken('accessToken');
   }
 }
 

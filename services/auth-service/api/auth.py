@@ -170,6 +170,7 @@ async def login(
                 password=sanitized_data["password"],
                 ip_address=ip_address,
                 user_agent=user_agent,
+                remember_me=sanitized_data.get("remember_me", False),
             )
 
             if not result:

@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    
+    # Remember Me Settings
+    JWT_REMEMBER_ME_ACCESS_TOKEN_EXPIRE_DAYS: int = 7
+    JWT_REMEMBER_ME_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    SESSION_REMEMBER_ME_EXPIRE_DAYS: int = 30
 
     # Security Settings
     BCRYPT_ROUNDS: int = 12

@@ -30,12 +30,15 @@ class SecurityUtils:
         return pwd_context.verify(plain_password, hashed_password)
 
     @staticmethod
-    def create_access_token(data: Dict[str, Any]) -> str:
+    def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
         """Create JWT access token"""
         to_encode = data.copy()
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
-        )
+        if expires_delta:
+            expire = datetime.now(timezone.utc) + expires_delta
+        else:
+            expire = datetime.now(timezone.utc) + timedelta(
+                minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+            )
         to_encode.update({"exp": expire, "type": "access"})
 
         return jwt.encode(
@@ -43,12 +46,15 @@ class SecurityUtils:
         )
 
     @staticmethod
-    def create_refresh_token(data: Dict[str, Any]) -> str:
+    def create_refresh_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
         """Create JWT refresh token"""
         to_encode = data.copy()
-        expire = datetime.now(timezone.utc) + timedelta(
-            days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS
-        )
+        if expires_delta:
+            expire = datetime.now(timezone.utc) + expires_delta
+        else:
+            expire = datetime.now(timezone.utc) + timedelta(
+                days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS
+            )
         to_encode.update({"exp": expire, "type": "refresh"})
 
         return jwt.encode(

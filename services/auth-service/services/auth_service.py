@@ -75,6 +75,7 @@ class AuthService:
         password: str,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
+        remember_me: bool = False,
     ) -> Optional[Tuple[User, Session, Dict[str, Any]]]:
         """Authenticate user and create session"""
         try:
@@ -117,11 +118,11 @@ class AuthService:
 
             # Create session
             session = await self._create_session(
-                user=user, ip_address=ip_address, user_agent=user_agent
+                user=user, ip_address=ip_address, user_agent=user_agent, remember_me=remember_me
             )
 
             # Generate tokens
-            tokens = await self._generate_tokens(user, session)
+            tokens = await self._generate_tokens(user, session, remember_me)
 
             await self.db.commit()
 
@@ -155,8 +156,8 @@ class AuthService:
             if not user or not user.is_active:
                 return None
 
-            # Generate new tokens
-            tokens = await self._generate_tokens(user, session)
+            # Generate new tokens using the session's remember_me preference
+            tokens = await self._generate_tokens(user, session, session.remember_me)
 
             # Update session
             session.last_activity = datetime.now(timezone.utc)
@@ -332,6 +333,7 @@ class AuthService:
         user: User,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
+        remember_me: bool = False,
     ) -> Session:
         """Create a new user session"""
         from datetime import timedelta
@@ -339,8 +341,13 @@ class AuthService:
         # Generate session token
         session_token = security.generate_session_id()
 
-        # Calculate expiration
-        expires_at = datetime.now() + timedelta(days=30)  # 30 days
+        # Calculate expiration based on remember_me setting
+        if remember_me:
+            # Long-lived session for "remember me"
+            expires_at = datetime.now() + timedelta(days=settings.SESSION_REMEMBER_ME_EXPIRE_DAYS)
+        else:
+            # Standard session - 24 hours (from settings)
+            expires_at = datetime.now() + timedelta(hours=settings.SESSION_EXPIRE_HOURS)
 
         session = Session(
             user_id=user.id,
@@ -349,6 +356,7 @@ class AuthService:
                 user_agent[:100] if user_agent else None
             ),  # Truncate to fit field size
             location=ip_address,
+            remember_me=remember_me,
             expires_at=expires_at,
         )
 
@@ -357,7 +365,7 @@ class AuthService:
 
         return session
 
-    async def _generate_tokens(self, user: User, session: Session) -> Dict[str, Any]:
+    async def _generate_tokens(self, user: User, session: Session, remember_me: bool = False) -> Dict[str, Any]:
         """Generate JWT tokens for user session"""
         token_data = {
             "user_id": str(user.id),
@@ -367,14 +375,30 @@ class AuthService:
             ),  # Use session.id instead of session.session_id
         }
 
-        access_token = security.create_access_token(token_data)
-        refresh_token = security.create_refresh_token(token_data)
+        # Create tokens with different expiration times based on remember_me
+        if remember_me:
+            # Longer access token for remember me
+            access_token = security.create_access_token(
+                token_data, 
+                expires_delta=timedelta(days=settings.JWT_REMEMBER_ME_ACCESS_TOKEN_EXPIRE_DAYS)
+            )
+            # Longer refresh token  
+            refresh_token = security.create_refresh_token(
+                token_data, 
+                expires_delta=timedelta(days=settings.JWT_REMEMBER_ME_REFRESH_TOKEN_EXPIRE_DAYS)
+            )
+            expires_in = settings.JWT_REMEMBER_ME_ACCESS_TOKEN_EXPIRE_DAYS * 24 * 60 * 60  # days to seconds
+        else:
+            # Standard tokens
+            access_token = security.create_access_token(token_data)
+            refresh_token = security.create_refresh_token(token_data)
+            expires_in = settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
             "token_type": "bearer",
-            "expires_in": settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            "expires_in": expires_in,
         }
 
     async def _get_session_by_id(self, session_id: str) -> Optional[Session]:

@@ -1,5 +1,17 @@
 import axios, { AxiosInstance } from 'axios';
 
+// Utility function to get access token from either storage location
+const getAccessToken = (): string | null => {
+  // Check localStorage first (remember me tokens)
+  const localToken = localStorage.getItem('accessToken');
+  if (localToken) {
+    return localToken;
+  }
+  
+  // Then check sessionStorage (regular session tokens)
+  return sessionStorage.getItem('accessToken');
+};
+
 // Create dedicated auth API instance
 const authApi: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_AUTH_URL || 'http://localhost:8005',
@@ -14,7 +26,7 @@ authApi.interceptors.request.use(
   (config) => {
     // Add token for protected endpoints like /auth/me, /auth/logout
     if (config.url?.includes('/me') || config.url?.includes('/logout')) {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }

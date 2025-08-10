@@ -1,6 +1,18 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { toast } from 'react-hot-toast';
 
+// Utility function to get access token from either storage location
+const getAccessToken = (): string | null => {
+  // Check localStorage first (remember me tokens)
+  const localToken = localStorage.getItem('accessToken');
+  if (localToken) {
+    return localToken;
+  }
+  
+  // Then check sessionStorage (regular session tokens)
+  return sessionStorage.getItem('accessToken');
+};
+
 // Create axios instance
 const api: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
@@ -13,7 +25,7 @@ const api: AxiosInstance = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
+    const token = getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
