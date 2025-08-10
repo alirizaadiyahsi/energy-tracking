@@ -14,7 +14,7 @@ const getAccessToken = (): string | null => {
 
 // Create dedicated auth API instance
 const authApi: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_AUTH_URL || 'http://localhost:8005',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
