@@ -56,6 +56,36 @@ class DatabaseSeeder:
             logger.error(f"Error creating default admin user: {e}")
             raise
 
+    async def seed_simple_admin(self):
+        """Create a secondary simple admin (admin@mail.com / admin123) if it doesn't exist"""
+        try:
+            result = await self.db.execute(
+                select(User).where(User.email == "admin@mail.com")
+            )
+            existing = result.scalar_one_or_none()
+            if existing:
+                logger.info("Simple admin user already exists")
+                return existing
+
+            user = User(
+                email="admin@mail.com",
+                hashed_password=SecurityUtils.hash_password("admin123"),
+                full_name="Local Administrator",
+                is_superuser=True,
+                is_active=True,
+                status="active",
+                email_verified=True,
+            )
+            self.db.add(user)
+            await self.db.commit()
+            await self.db.refresh(user)
+            logger.info("Created simple admin user: admin@mail.com")
+            return user
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Error creating simple admin user: {e}")
+            raise
+
     async def seed_default_roles(self):
         """Create default system roles if they don't exist"""
         default_roles = [
@@ -316,6 +346,35 @@ class DatabaseSeeder:
             logger.error(f"Error assigning super_admin role: {e}")
             raise
 
+    async def assign_super_admin_role_simple_admin(self):
+        """Assign super_admin role to simple admin user"""
+        try:
+            result = await self.db.execute(
+                select(User).options(selectinload(User.roles)).where(User.email == "admin@mail.com")
+            )
+            simple_admin = result.scalar_one_or_none()
+            if not simple_admin:
+                logger.warning("Simple admin user not found when assigning role")
+                return
+
+            result = await self.db.execute(select(Role).where(Role.name == "super_admin"))
+            super_role = result.scalar_one_or_none()
+            if not super_role:
+                logger.error("Super admin role not found")
+                return
+
+            if super_role in simple_admin.roles:
+                logger.info("Simple admin already has super_admin role")
+                return
+
+            simple_admin.roles.append(super_role)
+            await self.db.commit()
+            logger.info("Assigned super_admin role to simple admin user")
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Error assigning super_admin to simple admin: {e}")
+            raise
+
     async def seed_all(self):
         """Run all seeding operations"""
         logger.info("Starting database seeding...")
@@ -325,7 +384,9 @@ class DatabaseSeeder:
             await self.seed_default_permissions()
             await self.seed_default_roles()
             await self.seed_default_admin()
+            await self.seed_simple_admin()
             await self.assign_super_admin_role()
+            await self.assign_super_admin_role_simple_admin()
 
             logger.info("Database seeding completed successfully")
 

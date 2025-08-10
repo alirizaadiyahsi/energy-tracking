@@ -160,6 +160,24 @@ docker run -p 8005:8005 energy-auth-service
 - **CORS Protection**: Configurable allowed origins
 - **Input Validation**: Pydantic schema validation
 
+## Default Admin Users
+
+Two administrative accounts are seeded automatically for convenience:
+
+### Primary System Administrator
+- Email: `admin@energy-tracking.com`
+- Password: `admin123`
+- Role: Super Administrator
+- Purpose: Full system lifecycle administration
+
+### Simple Local Administrator
+- Email: `admin@mail.com`
+- Password: `admin123`
+- Role: Super Administrator
+- Purpose: Quick local testing with a shorter identifier
+
+> Security: Change these credentials immediately in any non-local environment.
+
 ## Monitoring and Health
 
 - **Health Checks**: Database and Redis connectivity

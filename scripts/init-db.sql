@@ -409,6 +409,16 @@ VALUES (
     'active'
 ) ON CONFLICT (email) DO NOTHING;
 
+-- Insert simple admin user (password: admin123)
+INSERT INTO auth.users (email, hashed_password, full_name, is_superuser, status) 
+VALUES (
+    'admin@mail.com', 
+    '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW',
+    'Local Administrator',
+    TRUE,
+    'active'
+) ON CONFLICT (email) DO NOTHING;
+
 -- Insert default organization
 INSERT INTO auth.organizations (name, display_name, description) VALUES
     ('default', 'Default Organization', 'Default organization for initial setup')
@@ -561,6 +571,13 @@ INSERT INTO auth.user_roles (user_id, role_id, assigned_by)
 SELECT u.id, r.id, u.id 
 FROM auth.users u, auth.roles r 
 WHERE u.email = 'admin@energy-tracking.com' AND r.name = 'super_admin'
+ON CONFLICT DO NOTHING;
+
+-- Assign super_admin role to simple admin user
+INSERT INTO auth.user_roles (user_id, role_id, assigned_by) 
+SELECT u.id, r.id, u.id 
+FROM auth.users u, auth.roles r 
+WHERE u.email = 'admin@mail.com' AND r.name = 'super_admin'
 ON CONFLICT DO NOTHING;
 
 -- Insert default device groups
