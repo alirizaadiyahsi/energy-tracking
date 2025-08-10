@@ -121,9 +121,8 @@ const Analytics: React.FC = () => {
         </div>
       </div>
 
-      {/* Secondary Analytics Section */}
-      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Efficiency Analysis */}
+      {/* Efficiency Analysis - Full Width */}
+      <div className="mt-8">
         <div className="card">
           <h3 className="text-lg font-medium text-secondary-900 mb-4">Efficiency Analysis</h3>
           <EfficiencyAnalysis
@@ -131,7 +130,10 @@ const Analytics: React.FC = () => {
             showRecommendations={true}
           />
         </div>
+      </div>
 
+      {/* Secondary Analytics Section */}
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Forecasting - Placeholder */}
         <div className="card">
           <h3 className="text-lg font-medium text-secondary-900 mb-4">Consumption Forecast</h3>
@@ -142,13 +144,11 @@ const Analytics: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Anomaly Detection Panel - Placeholder */}
-      <div className="mt-8">
+        {/* Anomaly Detection Panel - Placeholder */}
         <div className="card">
           <h3 className="text-lg font-medium text-secondary-900 mb-4">Anomaly Detection & Alerts</h3>
-          <div className="h-32 bg-gray-50 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+          <div className="h-48 bg-gray-50 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
             <div className="text-center">
               <div className="h-8 w-8 bg-gray-400 rounded animate-pulse mx-auto mb-2"></div>
               <p className="text-sm text-secondary-500">Anomaly detection panel will appear here</p>
