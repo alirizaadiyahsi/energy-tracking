@@ -5,6 +5,7 @@ import ConsumptionTrendsChart from '../components/analytics/ConsumptionTrendsCha
 import PowerUsageChart from '../components/analytics/PowerUsageChart';
 import EfficiencyAnalysis from '../components/analytics/EfficiencyAnalysis';
 import AnomalyDetectionPanel from '../components/analytics/AnomalyDetectionPanel';
+import ConsumptionForecast from '../components/analytics/ConsumptionForecast';
 import { useAnalyticsSummary } from '../hooks/useAnalyticsData';
 import { ChartParams } from '../types/analytics';
 
@@ -135,15 +136,16 @@ const Analytics: React.FC = () => {
 
       {/* Secondary Analytics Section */}
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Forecasting - Placeholder */}
+        {/* Forecasting Component */}
         <div className="card">
-          <h3 className="text-lg font-medium text-secondary-900 mb-4">Consumption Forecast</h3>
-          <div className="h-48 bg-gray-50 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
-            <div className="text-center">
-              <div className="h-8 w-8 bg-gray-400 rounded animate-pulse mx-auto mb-2"></div>
-              <p className="text-sm text-secondary-500">Forecasting chart will appear here</p>
-            </div>
-          </div>
+          <ConsumptionForecast
+            params={chartParams}
+            onParamsChange={setChartParams}
+            height={320}
+            showControls={true}
+            forecastDays={30}
+            confidenceInterval={true}
+          />
         </div>
 
         {/* Anomaly Detection Panel */}

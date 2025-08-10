@@ -201,6 +201,42 @@ export const useAnalyticsData = (params: ChartParams) => {
 };
 
 /**
+ * Hook for fetching efficiency analysis data
+ */
+export const useEfficiencyData = (params: ChartParams) => {
+  return useQuery({
+    queryKey: ['efficiency', params],
+    queryFn: () => analyticsService.getEfficiencyAnalysis(),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 2,
+  });
+};
+
+/**
+ * Hook for fetching anomaly detection data
+ */
+export const useAnomalyData = () => {
+  return useQuery({
+    queryKey: ['anomalies'],
+    queryFn: () => analyticsService.getAlerts(),
+    staleTime: 1000 * 60 * 1, // 1 minute for real-time alerts
+    retry: 2,
+  });
+};
+
+/**
+ * Hook for fetching forecast data
+ */
+export const useForecastData = (params: ChartParams & { forecastDays?: number; confidenceInterval?: boolean }) => {
+  return useQuery({
+    queryKey: ['forecast', params],
+    queryFn: () => analyticsService.getForecast(params.forecastDays || 30),
+    staleTime: 1000 * 60 * 10, // 10 minutes for forecast data
+    retry: 2,
+  });
+};
+
+/**
  * Hook for real-time data subscription (future enhancement)
  */
 export const useRealTimeAnalytics = (_enabled: boolean = false) => {
