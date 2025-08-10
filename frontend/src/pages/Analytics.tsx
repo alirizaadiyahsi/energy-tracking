@@ -1,11 +1,19 @@
 import React, { useState } from 'react';
 import TimeIntervalSelector, { TimeIntervalOption, timeIntervals } from '../components/TimeIntervalSelector';
 import AnalyticsSummaryCards from '../components/analytics/AnalyticsSummaryCards';
+import ConsumptionTrendsChart from '../components/analytics/ConsumptionTrendsChart';
 import { useAnalyticsSummary } from '../hooks/useAnalyticsData';
+import { ChartParams } from '../types/analytics';
 
 const Analytics: React.FC = () => {
   // State for time interval selection
   const [selectedInterval, setSelectedInterval] = useState<TimeIntervalOption>(timeIntervals[1]); // Default to hourly 24h
+  
+  // State for chart parameters
+  const [chartParams, setChartParams] = useState<ChartParams>({
+    interval: 'hourly',
+    timeRange: '24h',
+  });
   
   // Fetch analytics summary data
   const { data: summaryData, isLoading: summaryLoading, error: summaryError } = useAnalyticsSummary();
@@ -21,6 +29,15 @@ const Analytics: React.FC = () => {
   const handleCardClick = (metric: string) => {
     console.log(`Clicked on metric: ${metric}`);
     // TODO: Implement filtering or navigation based on clicked metric
+  };
+
+  const handleIntervalChange = (interval: TimeIntervalOption) => {
+    setSelectedInterval(interval);
+    setChartParams(prev => ({
+      ...prev,
+      interval: interval.interval,
+      timeRange: interval.timeRange,
+    }));
   };
 
   return (
@@ -58,14 +75,14 @@ const Analytics: React.FC = () => {
           <h2 className="text-xl font-semibold text-secondary-900">Energy Analytics</h2>
           <TimeIntervalSelector
             selectedInterval={selectedInterval}
-            onIntervalChange={setSelectedInterval}
+            onIntervalChange={handleIntervalChange}
           />
         </div>
       </div>
 
       {/* Main Charts Section */}
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Energy Consumption Trends Chart - Placeholder */}
+        {/* Energy Consumption Trends Chart */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-secondary-900">Energy Consumption Trends</h3>
@@ -74,12 +91,13 @@ const Analytics: React.FC = () => {
               <span className="text-sm text-secondary-600">Real-time data</span>
             </div>
           </div>
-          <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
-            <div className="text-center">
-              <div className="h-8 w-8 bg-gray-400 rounded animate-pulse mx-auto mb-2"></div>
-              <p className="text-sm text-secondary-500">Consumption trends chart will appear here</p>
-            </div>
-          </div>
+          <ConsumptionTrendsChart
+            params={chartParams}
+            onParamsChange={setChartParams}
+            height={320}
+            showControls={false}
+            showStats={true}
+          />
         </div>
 
         {/* Power Usage Analytics Chart - Placeholder */}
