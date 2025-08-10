@@ -273,7 +273,7 @@ async def get_device_stats(db: AsyncSession = Depends(get_db)):
         
         # Count device types
         for device in devices:
-            device_type = device.type
+            device_type = device.device_type
             stats["device_types"][device_type] = stats["device_types"].get(device_type, 0) + 1
         
         return success_response(

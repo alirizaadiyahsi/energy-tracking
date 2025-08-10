@@ -49,31 +49,31 @@ class DeviceService:
             # Insert device into database
             query = text("""
                 INSERT INTO energy.devices (
-                    id, name, type, location, description, status,
-                    base_power, base_voltage, firmware_version, model,
-                    metadata, created_at, updated_at, last_seen
+                    id, name, device_type, location, description, status,
+                    mac_address, ip_address, configuration, metadata,
+                    created_at, updated_at, last_seen
                 ) VALUES (
-                    :id, :name, :type, :location, :description, :status,
-                    :base_power, :base_voltage, :firmware_version, :model,
-                    :metadata, :created_at, :updated_at, :last_seen
+                    :id, :name, :device_type, :location, :description, :status,
+                    :mac_address, :ip_address, :configuration, :metadata,
+                    :created_at, :updated_at, :last_seen
                 )
                 RETURNING *
             """)
             
             # Convert metadata to JSON string if needed
             metadata_json = device_dict.get("metadata", {})
+            configuration_json = device_dict.get("configuration", {})
             
             result = await db.execute(query, {
                 "id": device_dict["id"],
                 "name": device_dict["name"],
-                "type": device_dict["type"],
+                "device_type": device_dict["device_type"],
                 "location": device_dict.get("location"),
                 "description": device_dict.get("description"),
                 "status": device_dict["status"],
-                "base_power": device_dict.get("base_power"),
-                "base_voltage": device_dict.get("base_voltage"),
-                "firmware_version": device_dict.get("firmware_version"),
-                "model": device_dict.get("model"),
+                "mac_address": device_dict.get("mac_address"),
+                "ip_address": device_dict.get("ip_address"),
+                "configuration": configuration_json,
                 "metadata": metadata_json,
                 "created_at": device_dict["created_at"],
                 "updated_at": device_dict["updated_at"],
@@ -91,18 +91,20 @@ class DeviceService:
             return DeviceResponse(
                 id=created_device.id,
                 name=created_device.name,
-                type=created_device.type,
+                device_type=created_device.device_type,
                 location=created_device.location,
                 description=created_device.description,
                 status=created_device.status,
-                base_power=created_device.base_power,
-                base_voltage=created_device.base_voltage,
-                firmware_version=created_device.firmware_version,
-                model=created_device.model,
+                mac_address=created_device.mac_address,
+                ip_address=created_device.ip_address,
+                configuration=created_device.configuration or {},
+                metadata=created_device.metadata or {},
                 last_seen=created_device.last_seen,
                 created_at=created_device.created_at,
                 updated_at=created_device.updated_at,
-                metadata=created_device.metadata or {}
+                owner_id=str(created_device.owner_id) if created_device.owner_id else None,
+                organization_id=str(created_device.organization_id) if created_device.organization_id else None,
+                created_by=str(created_device.created_by) if created_device.created_by else None
             )
             
         except Exception as e:
@@ -126,18 +128,20 @@ class DeviceService:
             return DeviceResponse(
                 id=device.id,
                 name=device.name,
-                type=device.type,
+                device_type=device.device_type,
                 location=device.location,
                 description=device.description,
                 status=device.status,
-                base_power=device.base_power,
-                base_voltage=device.base_voltage,
-                firmware_version=device.firmware_version,
-                model=device.model,
+                mac_address=device.mac_address,
+                ip_address=device.ip_address,
+                configuration=device.configuration or {},
+                metadata=device.metadata or {},
                 last_seen=device.last_seen,
                 created_at=device.created_at,
                 updated_at=device.updated_at,
-                metadata=device.metadata or {}
+                owner_id=str(device.owner_id) if device.owner_id else None,
+                organization_id=str(device.organization_id) if device.organization_id else None,
+                created_by=str(device.created_by) if device.created_by else None
             )
             
         except Exception as e:
@@ -191,18 +195,20 @@ class DeviceService:
             return DeviceResponse(
                 id=updated_device.id,
                 name=updated_device.name,
-                type=updated_device.type,
+                device_type=updated_device.device_type,
                 location=updated_device.location,
                 description=updated_device.description,
                 status=updated_device.status,
-                base_power=updated_device.base_power,
-                base_voltage=updated_device.base_voltage,
-                firmware_version=updated_device.firmware_version,
-                model=updated_device.model,
+                mac_address=updated_device.mac_address,
+                ip_address=updated_device.ip_address,
+                configuration=updated_device.configuration or {},
+                metadata=updated_device.metadata or {},
                 last_seen=updated_device.last_seen,
                 created_at=updated_device.created_at,
                 updated_at=updated_device.updated_at,
-                metadata=updated_device.metadata or {}
+                owner_id=str(updated_device.owner_id) if updated_device.owner_id else None,
+                organization_id=str(updated_device.organization_id) if updated_device.organization_id else None,
+                created_by=str(updated_device.created_by) if updated_device.created_by else None
             )
             
         except Exception as e:
@@ -254,7 +260,7 @@ class DeviceService:
             params = {"skip": skip, "limit": limit}
             
             if device_type:
-                where_clauses.append("type = :device_type")
+                where_clauses.append("device_type = :device_type")
                 params["device_type"] = device_type
                 
             if status:
@@ -277,18 +283,20 @@ class DeviceService:
                 DeviceResponse(
                     id=device.id,
                     name=device.name,
-                    type=device.type,
+                    device_type=device.device_type,
                     location=device.location,
                     description=device.description,
                     status=device.status,
-                    base_power=device.base_power,
-                    base_voltage=device.base_voltage,
-                    firmware_version=device.firmware_version,
-                    model=device.model,
+                    mac_address=device.mac_address,
+                    ip_address=device.ip_address,
+                    configuration=device.configuration or {},
+                    metadata=device.metadata or {},
                     last_seen=device.last_seen,
                     created_at=device.created_at,
                     updated_at=device.updated_at,
-                    metadata=device.metadata or {}
+                    owner_id=str(device.owner_id) if device.owner_id else None,
+                    organization_id=str(device.organization_id) if device.organization_id else None,
+                    created_by=str(device.created_by) if device.created_by else None
                 )
                 for device in devices
             ]
