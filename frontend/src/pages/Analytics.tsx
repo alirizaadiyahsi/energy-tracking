@@ -7,6 +7,7 @@ import EfficiencyAnalysis from '../components/analytics/EfficiencyAnalysis';
 import AnomalyDetectionPanel from '../components/analytics/AnomalyDetectionPanel';
 import ConsumptionForecast from '../components/analytics/ConsumptionForecast';
 import ComparativeAnalysis from '../components/analytics/ComparativeAnalysis';
+import DevicePerformanceTable from '../components/analytics/DevicePerformanceTable';
 import { useAnalyticsSummary } from '../hooks/useAnalyticsData';
 import { ChartParams } from '../types/analytics';
 
@@ -171,15 +172,9 @@ const Analytics: React.FC = () => {
           />
         </div>
 
-        {/* Device Performance Table - Placeholder */}
+        {/* Device Performance Table */}
         <div className="card">
-          <h3 className="text-lg font-medium text-secondary-900 mb-4">Device Performance</h3>
-          <div className="h-40 bg-gray-50 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
-            <div className="text-center">
-              <div className="h-8 w-8 bg-gray-400 rounded animate-pulse mx-auto mb-2"></div>
-              <p className="text-sm text-secondary-500">Device performance table will appear here</p>
-            </div>
-          </div>
+          <DevicePerformanceTable />
         </div>
       </div>
 
