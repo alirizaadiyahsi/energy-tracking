@@ -6,6 +6,7 @@ import PowerUsageChart from '../components/analytics/PowerUsageChart';
 import EfficiencyAnalysis from '../components/analytics/EfficiencyAnalysis';
 import AnomalyDetectionPanel from '../components/analytics/AnomalyDetectionPanel';
 import ConsumptionForecast from '../components/analytics/ConsumptionForecast';
+import ComparativeAnalysis from '../components/analytics/ComparativeAnalysis';
 import { useAnalyticsSummary } from '../hooks/useAnalyticsData';
 import { ChartParams } from '../types/analytics';
 
@@ -160,15 +161,14 @@ const Analytics: React.FC = () => {
 
       {/* Comparative Analysis and Device Performance - Placeholder */}
       <div className="mt-8 grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* Comparative Analysis - Placeholder */}
+        {/* Comparative Analysis Component */}
         <div className="xl:col-span-2 card">
-          <h3 className="text-lg font-medium text-secondary-900 mb-4">Comparative Analysis</h3>
-          <div className="h-40 bg-gray-50 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
-            <div className="text-center">
-              <div className="h-8 w-8 bg-gray-400 rounded animate-pulse mx-auto mb-2"></div>
-              <p className="text-sm text-secondary-500">Comparative analysis will appear here</p>
-            </div>
-          </div>
+          <ComparativeAnalysis
+            params={chartParams}
+            onParamsChange={setChartParams}
+            height={360}
+            showControls={true}
+          />
         </div>
 
         {/* Device Performance Table - Placeholder */}
