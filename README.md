@@ -2,6 +2,14 @@
 
 A comprehensive IoT data processing platform built with Python microservices and React frontend. This system collects, processes, stores, and visualizes energy data from various IoT sources with forecasting capabilities.
 
+> **⚠️ Important Notice**
+>
+> This project is **fully developed and managed by AI**.  
+> It is created purely for **experimental purposes**.  
+> No manual code modifications have been made by humans.  
+> Use at your own risk — this is **not intended for production use**.
+
+
 ## 🏗️ Architecture
 
 This project follows a microservice architecture with the following components:
