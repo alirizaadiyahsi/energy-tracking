@@ -3,8 +3,8 @@ import { Device, DeviceCreate, DeviceUpdate, EnergyReading, ApiResponse } from '
 
 class DeviceService {
   async getDevices(): Promise<Device[]> {
-    // Use the new data-ingestion endpoint
-    const response = await api.get<ApiResponse<Device[]>>('/api/v1/data-ingestion/devices/list');
+    // Use the MQTT data-ingestion endpoint with real-time device data
+    const response = await api.get<ApiResponse<Device[]>>('/api/v1/data-ingestion/devices');
     if (response.data.success && response.data.data) {
       return response.data.data;
     }

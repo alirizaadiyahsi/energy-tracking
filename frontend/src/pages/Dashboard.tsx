@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from 'react-query';
 import { Activity, Zap, TrendingUp, AlertTriangle } from 'lucide-react';
 import dashboardService from '../services/dashboardService';
+import deviceService from '../services/deviceService';
 import { formatPower, formatEnergy } from '../utils';
 import PowerChart from '../components/charts/PowerChart';
 import EnergyChart from '../components/charts/EnergyChart';
@@ -14,6 +15,15 @@ const Dashboard: React.FC = () => {
   const { data: dashboardData, isLoading, error } = useQuery(
     'dashboard',
     () => dashboardService.getDashboardData(),
+    {
+      refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
+    }
+  );
+
+  // Fetch device data to get accurate device counts
+  const { data: devices } = useQuery(
+    'dashboard-devices',
+    () => deviceService.getDevices(),
     {
       refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
     }
@@ -66,14 +76,14 @@ const Dashboard: React.FC = () => {
   const stats = [
     {
       name: 'Total Devices',
-      value: dashboardData?.totalDevices || 0,
+      value: devices?.length || 0,
       icon: Activity,
       color: 'text-blue-600',
       bgColor: 'bg-blue-100',
     },
     {
       name: 'Online Devices',
-      value: dashboardData?.onlineDevices || 0,
+      value: devices?.filter(device => device.status === 'online').length || 0,
       icon: Zap,
       color: 'text-green-600',
       bgColor: 'bg-green-100',

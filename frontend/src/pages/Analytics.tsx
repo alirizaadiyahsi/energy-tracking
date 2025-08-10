@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQuery } from 'react-query';
 import TimeIntervalSelector, { TimeIntervalOption, timeIntervals } from '../components/TimeIntervalSelector';
 import AnalyticsSummaryCards from '../components/analytics/AnalyticsSummaryCards';
 import ConsumptionTrendsChart from '../components/analytics/ConsumptionTrendsChart';
@@ -10,6 +11,7 @@ import ComparativeAnalysis from '../components/analytics/ComparativeAnalysis';
 import DevicePerformanceTable from '../components/analytics/DevicePerformanceTable';
 import EnergyReportsGenerator from '../components/analytics/EnergyReportsGenerator';
 import { useAnalyticsSummary } from '../hooks/useAnalyticsData';
+import deviceService from '../services/deviceService';
 import { ChartParams } from '../types/analytics';
 
 const Analytics: React.FC = () => {
@@ -24,6 +26,21 @@ const Analytics: React.FC = () => {
   
   // Fetch analytics summary data
   const { data: summaryData, isLoading: summaryLoading, error: summaryError } = useAnalyticsSummary();
+
+  // Fetch device data to get accurate device counts for analytics
+  const { data: devices } = useQuery(
+    'analytics-devices',
+    () => deviceService.getDevices(),
+    {
+      refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+    }
+  );
+
+  // Augment analytics summary with correct device count
+  const augmentedSummaryData = summaryData && devices ? {
+    ...summaryData,
+    active_devices: devices.filter(device => device.status === 'online').length
+  } : summaryData;
 
   if (summaryLoading && !summaryData) {
     return (
@@ -69,7 +86,7 @@ const Analytics: React.FC = () => {
           </div>
         ) : (
           <AnalyticsSummaryCards
-            data={summaryData}
+            data={augmentedSummaryData}
             isLoading={summaryLoading}
             onCardClick={handleCardClick}
           />
