@@ -8,6 +8,12 @@ from schemas.device import DeviceCreate, DeviceUpdate, DeviceResponse
 from services.device_service import DeviceService
 from core.database import get_db
 from services.mqtt_client import mqtt_ingestion
+from core.auth import get_current_user, get_optional_user, User
+from core.permissions import (
+    DevicePermission, PermissionChecker, AuditLogger, AuditAction,
+    rate_limiter, DEVICE_RATE_LIMITS
+)
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -24,6 +30,34 @@ def success_response(data: Any, message: str = "Success") -> Dict[str, Any]:
 def error_response(message: str, errors: Optional[List[str]] = None) -> Dict[str, Any]:
     """Create a standardized error response"""
     return {"success": False, "data": None, "message": message, "errors": errors or []}
+
+
+def check_rate_limit(user_id: str, operation: str):
+    """Check rate limiting for user operation"""
+    if settings.ENABLE_RATE_LIMITING and not rate_limiter.is_allowed(user_id, operation):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Rate limit exceeded for {operation}. Please try again later."
+        )
+
+def check_device_permission(user: User, permission: DevicePermission, device_org_id: Optional[str] = None):
+    """Check if user has required device permission"""
+    if not settings.ENABLE_AUTH:
+        return  # Skip auth checks if disabled
+        
+    # Check role-based permissions
+    if not PermissionChecker.has_device_permission(user.roles, permission.value):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Insufficient permissions. Required: {permission.value}"
+        )
+    
+    # Check organization access if device has organization
+    if device_org_id and not PermissionChecker.can_access_organization_devices(user.organization_id, device_org_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Device belongs to different organization."
+        )
 
 
 @router.get("/devices")
@@ -107,23 +141,44 @@ async def list_devices_db(
     limit: int = Query(100, ge=1, le=1000, description="Number of items to return"),
     device_type: Optional[str] = Query(None, description="Filter by device type"),
     status: Optional[str] = Query(None, description="Filter by device status"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """List devices from database"""
+    """List devices from database with authentication and authorization"""
     try:
+        # Check rate limiting
+        check_rate_limit(current_user.id, "list_devices")
+        
+        # Check permissions
+        check_device_permission(current_user, DevicePermission.LIST)
+        
+        # Get organization filter for user
+        org_filter = PermissionChecker.get_accessible_device_filter(current_user.organization_id)
+        
         devices = await device_service.list_devices(
             db=db,
             skip=skip,
             limit=limit,
             device_type=device_type,
-            status=status
+            status=status,
+            organization_filter=org_filter
         )
+        
+        # Audit logging
+        if settings.ENABLE_AUDIT_LOGGING:
+            AuditLogger.log_device_action(
+                user_id=current_user.id,
+                action=AuditAction.DEVICE_LISTED,
+                details={"count": len(devices), "filters": {"device_type": device_type, "status": status}}
+            )
         
         return success_response(
             data=[device.model_dump() for device in devices],
             message=f"Retrieved {len(devices)} devices from database"
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error listing devices: {e}")
         raise HTTPException(
@@ -135,16 +190,34 @@ async def list_devices_db(
 @router.get("/devices/{device_id}/db", response_model=Dict[str, Any])
 async def get_device_db(
     device_id: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """Get a specific device by ID from database"""
+    """Get a specific device by ID from database with authentication"""
     try:
+        # Check rate limiting
+        check_rate_limit(current_user.id, "get_device")
+        
+        # Check permissions
+        check_device_permission(current_user, DevicePermission.READ)
+        
         device = await device_service.get_device(db=db, device_id=device_id)
         
         if not device:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Device {device_id} not found"
+            )
+        
+        # Check organization access for specific device
+        check_device_permission(current_user, DevicePermission.READ, device.organization_id)
+        
+        # Audit logging
+        if settings.ENABLE_AUDIT_LOGGING:
+            AuditLogger.log_device_action(
+                user_id=current_user.id,
+                action=AuditAction.DEVICE_VIEWED,
+                device_id=device_id
             )
         
         return success_response(
@@ -166,22 +239,39 @@ async def get_device_db(
 async def create_device(
     device_data: DeviceCreate,
     db: AsyncSession = Depends(get_db),
-    # TODO: Add authentication dependency here
-    # current_user = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
-    """Create a new device"""
+    """Create a new device with authentication and authorization"""
     try:
+        # Check rate limiting
+        check_rate_limit(current_user.id, "create_device")
+        
+        # Check permissions
+        check_device_permission(current_user, DevicePermission.CREATE)
+        
         device = await device_service.create_device(
             db=db,
             device_data=device_data,
-            # created_by=current_user.get("user_id")  # TODO: Add when auth is integrated
+            created_by=current_user.id,
+            organization_id=current_user.organization_id
         )
+        
+        # Audit logging
+        if settings.ENABLE_AUDIT_LOGGING:
+            AuditLogger.log_device_action(
+                user_id=current_user.id,
+                action=AuditAction.DEVICE_CREATED,
+                device_id=device.id,
+                details={"device_name": device.name, "device_type": device.type}
+            )
         
         return success_response(
             data=device.model_dump(),
             message=f"Device '{device.name}' created successfully"
         )
         
+    except HTTPException:
+        raise
     except ValueError as e:
         logger.warning(f"Validation error creating device: {e}")
         raise HTTPException(
@@ -201,22 +291,41 @@ async def update_device(
     device_id: str,
     device_data: DeviceUpdate,
     db: AsyncSession = Depends(get_db),
-    # TODO: Add authentication dependency here
-    # current_user = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
-    """Update an existing device"""
+    """Update an existing device with authentication and authorization"""
     try:
+        # Check rate limiting
+        check_rate_limit(current_user.id, "update_device")
+        
+        # Check permissions
+        check_device_permission(current_user, DevicePermission.UPDATE)
+        
+        # Get existing device to check organization access
+        existing_device = await device_service.get_device(db=db, device_id=device_id)
+        if not existing_device:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Device {device_id} not found"
+            )
+        
+        # Check organization access for specific device
+        check_device_permission(current_user, DevicePermission.UPDATE, existing_device.organization_id)
+        
         device = await device_service.update_device(
             db=db,
             device_id=device_id,
             device_data=device_data,
-            # updated_by=current_user.get("user_id")  # TODO: Add when auth is integrated
+            updated_by=current_user.id
         )
         
-        if not device:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Device {device_id} not found"
+        # Audit logging
+        if settings.ENABLE_AUDIT_LOGGING:
+            AuditLogger.log_device_action(
+                user_id=current_user.id,
+                action=AuditAction.DEVICE_UPDATED,
+                device_id=device_id,
+                details={"updated_fields": device_data.model_dump(exclude_unset=True)}
             )
         
         return success_response(
@@ -244,17 +353,36 @@ async def update_device(
 async def delete_device(
     device_id: str,
     db: AsyncSession = Depends(get_db),
-    # TODO: Add authentication dependency here
-    # current_user = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
-    """Delete a device"""
+    """Delete a device with authentication and authorization"""
     try:
-        deleted = await device_service.delete_device(db=db, device_id=device_id)
+        # Check rate limiting
+        check_rate_limit(current_user.id, "delete_device")
         
-        if not deleted:
+        # Check permissions
+        check_device_permission(current_user, DevicePermission.DELETE)
+        
+        # Get existing device to check organization access and get device name for audit
+        existing_device = await device_service.get_device(db=db, device_id=device_id)
+        if not existing_device:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Device {device_id} not found"
+            )
+        
+        # Check organization access for specific device
+        check_device_permission(current_user, DevicePermission.DELETE, existing_device.organization_id)
+        
+        deleted = await device_service.delete_device(db=db, device_id=device_id)
+        
+        # Audit logging
+        if settings.ENABLE_AUDIT_LOGGING:
+            AuditLogger.log_device_action(
+                user_id=current_user.id,
+                action=AuditAction.DEVICE_DELETED,
+                device_id=device_id,
+                details={"device_name": existing_device.name, "device_type": existing_device.type}
             )
         
         return success_response(

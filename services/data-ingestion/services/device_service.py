@@ -28,7 +28,8 @@ class DeviceService:
         self,
         db: AsyncSession,
         device_data: DeviceCreate,
-        created_by: Optional[str] = None
+        created_by: Optional[str] = None,
+        organization_id: Optional[str] = None
     ) -> DeviceResponse:
         """Create a new device in the database"""
         try:
@@ -44,13 +45,10 @@ class DeviceService:
                 "created_at": current_time,
                 "updated_at": current_time,
                 "last_seen": None,
+                "organization_id": organization_id
             })
             
-            # Add created_by if provided (for audit)
-            if created_by:
-                device_dict["created_by"] = created_by
-            
-            # Insert device into database
+            # Insert device into database (simplified - organization_id may not exist in current schema)
             query = text("""
                 INSERT INTO energy.devices (
                     id, name, device_type, location, description, status,
@@ -323,9 +321,10 @@ class DeviceService:
         skip: int = 0,
         limit: int = 100,
         device_type: Optional[str] = None,
-        status: Optional[str] = None
+        status: Optional[str] = None,
+        organization_filter: Optional[str] = None
     ) -> List[DeviceResponse]:
-        """List devices with optional filtering"""
+        """List devices with optional filtering and organization access control"""
         try:
             # Build query with filters
             where_clauses = []
@@ -338,6 +337,10 @@ class DeviceService:
             if status:
                 where_clauses.append("status = :status")
                 params["status"] = status
+            
+            # Add organization filter if provided (for access control)
+            if organization_filter:
+                where_clauses.append(f"({organization_filter})")
             
             where_clause = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
             

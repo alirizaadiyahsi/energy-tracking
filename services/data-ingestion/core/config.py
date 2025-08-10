@@ -28,6 +28,16 @@ class Settings(BaseSettings):
     INFLUXDB_URL: str = "http://localhost:8086"
     INFLUXDB_TOKEN: str = "energy-token"
     INFLUXDB_ORG: str = "energy-org"
+    
+    # Authentication Service Settings
+    AUTH_SERVICE_URL: str = "http://energy-auth-service:8005"
+    JWT_SECRET_KEY: str = "your-secret-key"
+    JWT_ALGORITHM: str = "HS256"
+    
+    # Security Settings
+    ENABLE_AUTH: bool = True
+    ENABLE_RATE_LIMITING: bool = True
+    ENABLE_AUDIT_LOGGING: bool = True
     INFLUXDB_BUCKET: str = "iot-data"
 
     # MQTT Settings
