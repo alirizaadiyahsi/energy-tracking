@@ -1,9 +1,10 @@
 import api from './api';
-import { Device, EnergyReading, ApiResponse } from '../types';
+import { Device, DeviceCreate, DeviceUpdate, EnergyReading, ApiResponse } from '../types';
 
 class DeviceService {
   async getDevices(): Promise<Device[]> {
-    const response = await api.get<ApiResponse<Device[]>>('/api/v1/data/devices');
+    // Use the database endpoint instead of mock data
+    const response = await api.get<ApiResponse<Device[]>>('/api/v1/data/devices/list');
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
@@ -11,7 +12,8 @@ class DeviceService {
   }
 
   async getDevice(id: string): Promise<Device> {
-    const response = await api.get<ApiResponse<Device>>(`/api/v1/data/devices/${id}`);
+    // Use the database endpoint for specific device
+    const response = await api.get<ApiResponse<Device>>(`/api/v1/data/devices/${id}/db`);
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
@@ -41,7 +43,7 @@ class DeviceService {
     throw new Error(response.data.message || 'Failed to fetch device readings');
   }
 
-  async createDevice(deviceData: Partial<Device>): Promise<Device> {
+  async createDevice(deviceData: DeviceCreate): Promise<Device> {
     const response = await api.post<ApiResponse<Device>>('/api/v1/data/devices', deviceData);
     if (response.data.success && response.data.data) {
       return response.data.data;
@@ -49,7 +51,7 @@ class DeviceService {
     throw new Error(response.data.message || 'Failed to create device');
   }
 
-  async updateDevice(id: string, deviceData: Partial<Device>): Promise<Device> {
+  async updateDevice(id: string, deviceData: DeviceUpdate): Promise<Device> {
     const response = await api.put<ApiResponse<Device>>(`/api/v1/data/devices/${id}`, deviceData);
     if (response.data.success && response.data.data) {
       return response.data.data;

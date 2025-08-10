@@ -1,14 +1,98 @@
-import React from 'react';
-import { useQuery } from 'react-query';
-import { Plus, Cpu, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { Plus, Cpu, Wifi, WifiOff, AlertTriangle, Edit, Trash2, Eye } from 'lucide-react';
 import deviceService from '../services/deviceService';
+import { Device, DeviceCreate, DeviceUpdate } from '../types';
 import { getStatusBadgeColor } from '../utils';
+import DeviceForm from '../components/DeviceForm';
+import DeleteDeviceModal from '../components/DeleteDeviceModal';
 
 const Devices: React.FC = () => {
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [isFormLoading, setIsFormLoading] = useState(false);
+  
+  const queryClient = useQueryClient();
+  
   const { data: devices, isLoading, error } = useQuery(
     'devices',
     () => deviceService.getDevices()
   );
+
+  // Create device mutation
+  const createDeviceMutation = useMutation(
+    (deviceData: DeviceCreate) => deviceService.createDevice(deviceData),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('devices');
+      },
+    }
+  );
+
+  // Update device mutation
+  const updateDeviceMutation = useMutation(
+    ({ id, data }: { id: string; data: DeviceUpdate }) => 
+      deviceService.updateDevice(id, data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('devices');
+      },
+    }
+  );
+
+  // Delete device mutation
+  const deleteDeviceMutation = useMutation(
+    (deviceId: string) => deviceService.deleteDevice(deviceId),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('devices');
+      },
+    }
+  );
+
+  const handleAddDevice = () => {
+    setSelectedDevice(null);
+    setIsFormOpen(true);
+  };
+
+  const handleEditDevice = (device: Device) => {
+    setSelectedDevice(device);
+    setIsFormOpen(true);
+  };
+
+  const handleDeleteDevice = (device: Device) => {
+    setSelectedDevice(device);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleFormSubmit = async (data: DeviceCreate | DeviceUpdate) => {
+    setIsFormLoading(true);
+    try {
+      if (selectedDevice) {
+        // Update existing device
+        await updateDeviceMutation.mutateAsync({ 
+          id: selectedDevice.id, 
+          data: data as DeviceUpdate 
+        });
+      } else {
+        // Create new device
+        await createDeviceMutation.mutateAsync(data as DeviceCreate);
+      }
+      setIsFormOpen(false);
+    } catch (error) {
+      console.error('Error saving device:', error);
+    } finally {
+      setIsFormLoading(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (selectedDevice) {
+      await deleteDeviceMutation.mutateAsync(selectedDevice.id);
+      setIsDeleteModalOpen(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -51,6 +135,7 @@ const Devices: React.FC = () => {
         <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
           <button
             type="button"
+            onClick={handleAddDevice}
             className="btn btn-primary"
           >
             <Plus className="h-4 w-4" />
@@ -115,12 +200,25 @@ const Devices: React.FC = () => {
                         {device.location || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">
-                        {device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'Never'}
+                        {device.last_seen ? new Date(device.last_seen).toLocaleString() : 'Never'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button className="text-primary-600 hover:text-primary-900">
-                          Edit
-                        </button>
+                        <div className="flex justify-end space-x-2">
+                          <button 
+                            onClick={() => handleEditDevice(device)}
+                            className="text-primary-600 hover:text-primary-900 p-1"
+                            title="Edit device"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteDevice(device)}
+                            className="text-red-600 hover:text-red-900 p-1"
+                            title="Delete device"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -141,6 +239,7 @@ const Devices: React.FC = () => {
           <div className="mt-6">
             <button
               type="button"
+              onClick={handleAddDevice}
               className="btn btn-primary"
             >
               <Plus className="h-4 w-4" />
@@ -149,6 +248,24 @@ const Devices: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Device Form Modal */}
+      <DeviceForm
+        device={selectedDevice}
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        onSubmit={handleFormSubmit}
+        isLoading={isFormLoading}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteDeviceModal
+        device={selectedDevice}
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        isLoading={deleteDeviceMutation.isLoading}
+      />
     </div>
   );
 };

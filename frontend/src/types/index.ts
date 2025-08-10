@@ -62,15 +62,45 @@ export interface AuthServiceRegisterResponse {
 export interface Device {
   id: string;
   name: string;
-  type: 'sensor' | 'meter' | 'gateway';
+  type: 'hvac' | 'lighting' | 'server' | 'sensor' | 'meter' | 'gateway' | 'appliance' | 'industrial' | 'controller';
   status: 'online' | 'offline' | 'error';
   location?: string;
-  lastSeen?: string;
-  batteryLevel?: number;
-  firmwareVersion?: string;
+  description?: string;
+  base_power?: number | null;
+  base_voltage?: number | null;
+  firmware_version?: string | null;
+  model?: string | null;
+  last_seen?: string | null;
+  created_at: string;
+  updated_at: string;
   metadata: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
+}
+
+// Device creation interface (for forms)
+export interface DeviceCreate {
+  name: string;
+  type: Device['type'];
+  location?: string;
+  description?: string;
+  base_power?: number;
+  base_voltage?: number;
+  firmware_version?: string;
+  model?: string;
+  metadata?: Record<string, any>;
+}
+
+// Device update interface (for forms)
+export interface DeviceUpdate {
+  name?: string;
+  type?: Device['type'];
+  location?: string;
+  description?: string;
+  status?: Device['status'];
+  base_power?: number;
+  base_voltage?: number;
+  firmware_version?: string;
+  model?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface EnergyReading {
