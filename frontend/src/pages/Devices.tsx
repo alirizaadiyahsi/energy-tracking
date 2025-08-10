@@ -53,7 +53,7 @@ const Devices: React.FC = () => {
             type="button"
             className="btn btn-primary"
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" />
             Add Device
           </button>
         </div>
@@ -143,7 +143,7 @@ const Devices: React.FC = () => {
               type="button"
               className="btn btn-primary"
             >
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4" />
               Add Device
             </button>
           </div>
