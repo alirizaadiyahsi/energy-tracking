@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Dispatch, SetStateAction } from 'react';
 import { Bar, Line } from 'react-chartjs-2';
 import { Download, TrendingUp, BarChart3, ArrowUpDown } from 'lucide-react';
 import { ChartDataPoint } from '../../types';
@@ -17,6 +17,7 @@ interface ComparisonPeriod {
 
 interface ComparativeAnalysisProps {
   params: ChartParams;
+  onParamsChange?: Dispatch<SetStateAction<ChartParams>>;
   height?: number;
   showControls?: boolean;
 }

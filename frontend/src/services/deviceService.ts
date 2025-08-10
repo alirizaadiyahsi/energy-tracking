@@ -3,8 +3,8 @@ import { Device, DeviceCreate, DeviceUpdate, EnergyReading, ApiResponse } from '
 
 class DeviceService {
   async getDevices(): Promise<Device[]> {
-    // Use the database endpoint instead of mock data
-    const response = await api.get<ApiResponse<Device[]>>('/api/v1/data/devices/list');
+    // Use the new data-ingestion endpoint
+    const response = await api.get<ApiResponse<Device[]>>('/api/v1/data-ingestion/devices/list');
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
@@ -12,8 +12,8 @@ class DeviceService {
   }
 
   async getDevice(id: string): Promise<Device> {
-    // Use the database endpoint for specific device
-    const response = await api.get<ApiResponse<Device>>(`/api/v1/data/devices/${id}/db`);
+    // Use the new data-ingestion endpoint
+    const response = await api.get<ApiResponse<Device>>(`/api/v1/data-ingestion/devices/${id}/db`);
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
@@ -34,7 +34,7 @@ class DeviceService {
     if (to) params.append('to', to);
 
     const response = await api.get<ApiResponse<EnergyReading[]>>(
-      `/api/v1/data/devices/${deviceId}/readings?${params.toString()}`
+      `/api/v1/data-ingestion/devices/${deviceId}/readings?${params.toString()}`
     );
     
     if (response.data.success && response.data.data) {
@@ -44,7 +44,7 @@ class DeviceService {
   }
 
   async createDevice(deviceData: DeviceCreate): Promise<Device> {
-    const response = await api.post<ApiResponse<Device>>('/api/v1/data/devices', deviceData);
+    const response = await api.post<ApiResponse<Device>>('/api/v1/data-ingestion/devices', deviceData);
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
@@ -52,7 +52,7 @@ class DeviceService {
   }
 
   async updateDevice(id: string, deviceData: DeviceUpdate): Promise<Device> {
-    const response = await api.put<ApiResponse<Device>>(`/api/v1/data/devices/${id}`, deviceData);
+    const response = await api.put<ApiResponse<Device>>(`/api/v1/data-ingestion/devices/${id}`, deviceData);
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
@@ -60,7 +60,7 @@ class DeviceService {
   }
 
   async deleteDevice(id: string): Promise<void> {
-    const response = await api.delete<ApiResponse<null>>(`/api/v1/data/devices/${id}`);
+    const response = await api.delete<ApiResponse<null>>(`/api/v1/data-ingestion/devices/${id}`);
     if (!response.data.success) {
       throw new Error(response.data.message || 'Failed to delete device');
     }

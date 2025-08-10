@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Dispatch, SetStateAction } from 'react';
 import { Line } from 'react-chartjs-2';
 import { Download, TrendingUp, BarChart3, AlertCircle } from 'lucide-react';
 import { ChartDataPoint } from '../../types';
+import { ChartParams } from '../../types/analytics';
 import { useConsumptionTrends, useForecastData } from '../../hooks/useAnalyticsData';
 import { formatAnalyticsValue } from '../../utils/analyticsTransformers';
 import { defaultChartOptions, chartColors } from '../../utils/chartConfig';
@@ -19,6 +20,12 @@ interface ProcessedData {
 }
 
 interface ForecastProps {
+  params?: ChartParams;
+  onParamsChange?: Dispatch<SetStateAction<ChartParams>>;
+  height?: number;
+  showControls?: boolean;
+  forecastDays?: number;
+  confidenceInterval?: boolean;
   organizationId?: string;
   timeRange?: '1h' | '24h' | '7d' | '30d';
   showConfidenceInterval?: boolean;
@@ -26,6 +33,12 @@ interface ForecastProps {
 }
 
 const ConsumptionForecast: React.FC<ForecastProps> = ({
+  params: _params,
+  onParamsChange: _onParamsChange,
+  height: _height = 320,
+  showControls: _showControls = true,
+  forecastDays: _forecastDays = 7,
+  confidenceInterval: _confidenceInterval = true,
   organizationId,
   timeRange = '7d',
   showConfidenceInterval = true,

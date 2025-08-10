@@ -162,13 +162,23 @@ async def proxy_auth(request: Request, path: str):
 
 
 @app.api_route(
-    "/api/v1/data/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
+    "/api/v1/data-ingestion/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
 )
-async def proxy_data(
+async def proxy_data_ingestion(
     request: Request, path: str, current_user=Depends(get_current_user)
 ):
-    """Proxy requests to data ingestion service (authenticated)"""
+    """Proxy requests to data-ingestion service (authenticated)"""
     return await proxy_request(request, "http://data-ingestion:8001", f"/api/v1/{path}")
+
+
+@app.api_route(
+    "/api/v1/data-processing/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
+)
+async def proxy_data_processing(
+    request: Request, path: str, current_user=Depends(get_current_user)
+):
+    """Proxy requests to data-processing service (authenticated)"""
+    return await proxy_request(request, "http://data-processing:8002", f"/api/v1/{path}")
 
 
 @app.api_route(
@@ -182,13 +192,37 @@ async def proxy_analytics(
 
 
 @app.api_route(
-    "/api/v1/notifications/{path:path}",
+    "/api/v1/notification/{path:path}",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
 )
-async def proxy_notifications(
+async def proxy_notification(
     request: Request, path: str, current_user=Depends(get_current_user)
 ):
     """Proxy requests to notification service (authenticated)"""
+    return await proxy_request(request, "http://notification:8004", f"/api/v1/{path}")
+
+
+# Legacy routes for backward compatibility (deprecated - will be removed)
+@app.api_route(
+    "/api/v1/data/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
+)
+async def proxy_data_legacy(
+    request: Request, path: str, current_user=Depends(get_current_user)
+):
+    """Legacy route: redirect to data-ingestion service (deprecated)"""
+    logger.warning(f"Using deprecated /api/v1/data/ route. Use /api/v1/data-ingestion/ instead.")
+    return await proxy_request(request, "http://data-ingestion:8001", f"/api/v1/{path}")
+
+
+@app.api_route(
+    "/api/v1/notifications/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+)
+async def proxy_notifications_legacy(
+    request: Request, path: str, current_user=Depends(get_current_user)
+):
+    """Legacy route: redirect to notification service (deprecated)"""
+    logger.warning(f"Using deprecated /api/v1/notifications/ route. Use /api/v1/notification/ instead.")
     return await proxy_request(request, "http://notification:8004", f"/api/v1/{path}")
 
 

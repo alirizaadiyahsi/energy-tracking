@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { Plus, Cpu, Wifi, WifiOff, AlertTriangle, Edit, Trash2, Eye } from 'lucide-react';
+import { Plus, Cpu, Wifi, WifiOff, AlertTriangle, Edit, Trash2 } from 'lucide-react';
 import deviceService from '../services/deviceService';
 import { Device, DeviceCreate, DeviceUpdate } from '../types';
 import { getStatusBadgeColor } from '../utils';
@@ -172,7 +172,8 @@ const Devices: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-secondary-200">
-                  {devices?.map((device) => (
+                  {Array.isArray(devices) && devices.length > 0 ? (
+                    devices.map((device) => (
                     <tr key={device.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -221,7 +222,14 @@ const Devices: React.FC = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-4 text-center text-sm text-secondary-500">
+                        {isLoading ? 'Loading devices...' : 'No devices found'}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

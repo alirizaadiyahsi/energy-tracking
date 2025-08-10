@@ -39,19 +39,28 @@ def error_response(message: str, errors: Optional[List[str]] = None) -> Dict[str
 async def get_dashboard_analytics():
     """Get dashboard analytics data"""
     try:
-        # Fetch real device data from data-ingestion service
+        # Fetch real device data from data-ingestion service DATABASE endpoint
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.get(f"{DATA_INGESTION_URL}/api/v1/devices", timeout=5.0)
+                # Use the database endpoint to get all devices
+                response = await client.get(f"{DATA_INGESTION_URL}/api/v1/devices/list", timeout=5.0)
                 devices_data = response.json()
                 devices = devices_data.get("data", []) if devices_data.get("success") else []
-                logger.info(f"Received {len(devices)} devices from data-ingestion")
+                logger.info(f"Received {len(devices)} devices from data-ingestion database")
                 # Debug: log first device data
                 if devices:
                     logger.info(f"Sample device data: {devices[0]}")
             except Exception as e:
-                logger.warning(f"Failed to fetch devices from data-ingestion: {e}")
-                devices = []
+                logger.warning(f"Failed to fetch devices from data-ingestion database: {e}")
+                # Fallback to MQTT endpoint if database fails
+                try:
+                    response = await client.get(f"{DATA_INGESTION_URL}/api/v1/devices", timeout=5.0)
+                    devices_data = response.json()
+                    devices = devices_data.get("data", []) if devices_data.get("success") else []
+                    logger.info(f"Fallback: Received {len(devices)} devices from MQTT")
+                except Exception as e2:
+                    logger.error(f"Both database and MQTT device fetch failed: {e}, {e2}")
+                    devices = []
         
         # Calculate real metrics from device data
         total_devices = len(devices)

@@ -42,7 +42,7 @@ class AuthService {
   }
 
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    const response = await authApi.post<AuthServiceLoginResponse>('/auth/login', credentials);
+    const response = await authApi.post<AuthServiceLoginResponse>('/api/v1/auth/login', credentials);
     
     // Auth service returns direct response, not wrapped in ApiResponse
     if (response.data && response.data.access_token) {
@@ -51,9 +51,9 @@ class AuthService {
       // Store tokens based on remember me preference
       this.storeTokens(access_token, refresh_token, credentials.remember_me || false);
       
-      // Get user details from /auth/me endpoint
+      // Get user details from /api/v1/auth/me endpoint
       try {
-        const userResponse = await authApi.get<any>('/auth/me');
+        const userResponse = await authApi.get<any>('/api/v1/auth/me');
         const userData = userResponse.data;
         
         // Transform the response to match our expected format
@@ -94,7 +94,7 @@ class AuthService {
   }
 
   async register(userData: RegisterRequest): Promise<RegisterResponse> {
-    const response = await authApi.post<AuthServiceRegisterResponse>('/auth/register', userData);
+    const response = await authApi.post<AuthServiceRegisterResponse>('/api/v1/auth/register', userData);
     
     // For register, we need to login after registration to get tokens
     if (response.data && response.data.user_id) {
@@ -110,14 +110,14 @@ class AuthService {
 
   async logout(): Promise<void> {
     try {
-      await authApi.post('/auth/logout');
+      await authApi.post('/api/v1/auth/logout');
     } finally {
       this.clearTokens();
     }
   }
 
   async getCurrentUser(): Promise<User> {
-    const response = await authApi.get<any>('/auth/me');
+    const response = await authApi.get<any>('/api/v1/auth/me');
     if (response.data) {
       const userData = response.data;
       return {
@@ -140,7 +140,7 @@ class AuthService {
       throw new Error('No refresh token available');
     }
 
-    const response = await authApi.post<{ access_token: string }>('/auth/refresh', {
+    const response = await authApi.post<{ access_token: string }>('/api/v1/auth/refresh', {
       refresh_token: refreshToken,
     });
 

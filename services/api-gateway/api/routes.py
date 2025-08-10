@@ -17,9 +17,14 @@ async def api_info():
         "description": "Central API gateway for IoT energy tracking platform",
         "endpoints": {
             "auth": "/api/v1/auth/*",
-            "data": "/api/v1/data/*",
+            "data-ingestion": "/api/v1/data-ingestion/*",
+            "data-processing": "/api/v1/data-processing/*",
             "analytics": "/api/v1/analytics/*",
-            "notifications": "/api/v1/notifications/*",
+            "notification": "/api/v1/notification/*",
+        },
+        "legacy_endpoints": {
+            "data": "/api/v1/data/* (deprecated - use /api/v1/data-ingestion/)",
+            "notifications": "/api/v1/notifications/* (deprecated - use /api/v1/notification/)",
         },
     }
 

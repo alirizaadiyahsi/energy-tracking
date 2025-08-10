@@ -78,6 +78,58 @@ async def get_devices():
         return error_response("Failed to fetch devices", [str(e)])
 
 
+@router.get("/devices/list", response_model=Dict[str, Any])
+async def list_devices_db(
+    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Number of items to return"),
+    device_type: Optional[str] = Query(None, description="Filter by device type"),
+    status: Optional[str] = Query(None, description="Filter by device status"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List devices from database with authentication and authorization"""
+    try:
+        # Check rate limiting
+        check_rate_limit(current_user.id, "list_devices")
+        
+        # Check permissions
+        check_device_permission(current_user, DevicePermission.LIST)
+        
+        # Get organization filter for user
+        org_filter = PermissionChecker.get_accessible_device_filter(current_user.organization_id)
+        
+        devices = await device_service.list_devices(
+            db=db,
+            skip=skip,
+            limit=limit,
+            device_type=device_type,
+            status=status,
+            organization_filter=org_filter
+        )
+        
+        # Audit logging
+        if settings.ENABLE_AUDIT_LOGGING:
+            AuditLogger.log_device_action(
+                user_id=current_user.id,
+                action=AuditAction.DEVICE_LISTED,
+                details={"count": len(devices), "filters": {"device_type": device_type, "status": status}}
+            )
+        
+        return success_response(
+            data=[device.model_dump() for device in devices],
+            message=f"Retrieved {len(devices)} devices from database"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error listing devices: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list devices"
+        )
+
+
 @router.get("/devices/{device_id}")
 async def get_device(device_id: str):
     """Get a specific device by ID"""
@@ -134,58 +186,6 @@ async def get_device_readings(
 # ============================================================================
 # DEVICE CRUD ENDPOINTS
 # ============================================================================
-
-@router.get("/devices/list", response_model=Dict[str, Any])
-async def list_devices_db(
-    skip: int = Query(0, ge=0, description="Number of items to skip"),
-    limit: int = Query(100, ge=1, le=1000, description="Number of items to return"),
-    device_type: Optional[str] = Query(None, description="Filter by device type"),
-    status: Optional[str] = Query(None, description="Filter by device status"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """List devices from database with authentication and authorization"""
-    try:
-        # Check rate limiting
-        check_rate_limit(current_user.id, "list_devices")
-        
-        # Check permissions
-        check_device_permission(current_user, DevicePermission.LIST)
-        
-        # Get organization filter for user
-        org_filter = PermissionChecker.get_accessible_device_filter(current_user.organization_id)
-        
-        devices = await device_service.list_devices(
-            db=db,
-            skip=skip,
-            limit=limit,
-            device_type=device_type,
-            status=status,
-            organization_filter=org_filter
-        )
-        
-        # Audit logging
-        if settings.ENABLE_AUDIT_LOGGING:
-            AuditLogger.log_device_action(
-                user_id=current_user.id,
-                action=AuditAction.DEVICE_LISTED,
-                details={"count": len(devices), "filters": {"device_type": device_type, "status": status}}
-            )
-        
-        return success_response(
-            data=[device.model_dump() for device in devices],
-            message=f"Retrieved {len(devices)} devices from database"
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error listing devices: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to list devices"
-        )
-
 
 @router.get("/devices/{device_id}/db", response_model=Dict[str, Any])
 async def get_device_db(
