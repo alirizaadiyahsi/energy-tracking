@@ -1,9 +1,20 @@
 # Energy Tracking IoT Data Platform
 
-A comprehensive IoT data processing platform built with Python microservices and React frontend. This system collects, processes, stores, and visual## 📸 Application Screenshots
+A comprehensive IoT data processing platform built with Python microservices and React frontend. This system collects, processes, stores, and visualizes energy data from various IoT sources with forecasting capabilities.
 
-> **📝 Note:** Screenshots are being captured from the running system. 
-> The system is currentl- ✅ Grafana - `http://localhost:3001`
+> **⚠️ Important Notice**
+>
+> This project is **fully developed and managed by AI**.  
+> It is created purely for **experimental purposes**.  
+> No manual code modifications have been made by humans.  
+> Use at your own risk — this is **not intended for production use**.
+
+## 🌐 System Access Points
+
+- ✅ Frontend Dashboard - `http://localhost:3000`
+- ✅ API Gateway - `http://localhost:8000`
+- ✅ API Documentation - `http://localhost:8000/docs`
+- ✅ Grafana - `http://localhost:3001`
 - ✅ Nginx Reverse Proxy - `http://localhost:8080`
 
 ## 🚀 Current System Status
@@ -46,10 +57,7 @@ curl -s http://localhost:8090/health  # Expected: {"status": "healthy"}
 - **Database Connections**: PostgreSQL, InfluxDB, and Redis all connected
 - **Message Queue**: MQTT broker handling device communications
 
-## 🔧 Configurationerational at the URLs listed below.
-> See [screenshots/README.md](screenshots/README.md) for capture instructions.
-
-### 🏠 Main Dashboards energy data from various IoT sources with forecasting capabilities.
+## 🔧 Configuration
 
 > **⚠️ Important Notice**
 >
@@ -187,7 +195,6 @@ energy-tracking/
 │   └── security/             # Security testing
 ├── scripts/                  # Utility and deployment scripts
 ├── docs/                     # Project documentation
-├── screenshots/              # Application screenshots
 ├── docker-compose.yml        # Production deployment
 ├── docker-compose.dev.yml    # Development environment
 ├── docker-compose.test.yml   # Testing environment
@@ -262,106 +269,7 @@ energy-tracking/
 7. **Visualization**: Real-time dashboard updates via WebSockets with user context
 8. **Audit**: All user activities and data changes are logged for compliance
 
-## � Application Screenshots
-
-### 🏠 Main Dashboard
-The main dashboard provides real-time monitoring and visualization of energy data from connected IoT devices.
-
-![Dashboard Screenshot](screenshots/dashboard.png)
-*Real-time energy monitoring dashboard with interactive charts and device status*
-
-**Features shown:**
-- Real-time energy consumption metrics
-- Device status indicators
-- Interactive time-series charts
-- Quick statistics overview
-- Navigation sidebar with all available modules
-
-### 📊 Analytics Portal
-Comprehensive analytics view for historical data analysis and trend visualization.
-
-![Analytics Screenshot](screenshots/analytics.png)
-*Advanced analytics with forecasting and historical data visualization*
-
-**Features shown:**
-- Historical energy consumption trends
-- Comparative analysis tools
-- Forecasting capabilities
-- Statistical summaries
-- Export functionality for reports
-
-### 🔧 Device Management
-Centralized device management interface for monitoring and configuring IoT devices.
-
-![Devices Screenshot](screenshots/devices.png)
-*Device management portal showing connected IoT devices and their status*
-
-**Features shown:**
-- List of all connected devices
-- Device status and health monitoring
-- Configuration management
-- Device performance metrics
-- Connection status indicators
-
-### 🔐 Authentication System
-Secure login system with role-based access control.
-
-![Login Screenshot](screenshots/login.png)
-*Secure authentication interface with modern design*
-
-**Features shown:**
-- Clean, modern login interface
-- Secure authentication flow
-- Password validation
-- Remember me functionality
-- Registration option
-
-### 🛠️ API Documentation
-Interactive API documentation powered by FastAPI and Swagger UI.
-
-![API Documentation Screenshot](screenshots/api-docs.png)
-*Comprehensive API documentation with interactive testing capabilities*
-
-**Features shown:**
-- Complete API endpoint documentation
-- Interactive testing interface
-- Request/response schemas
-- Authentication examples
-- Real-time API testing
-
-### 📈 Grafana Monitoring
-Advanced monitoring and alerting through Grafana dashboards.
-
-![Grafana Screenshot](screenshots/grafana.png)
-*Professional monitoring dashboards for system observability*
-
-**Features shown:**
-- Real-time system metrics
-- Custom dashboard creation
-- Alerting capabilities
-- Performance monitoring
-- Infrastructure insights
-
-### 🌐 System Architecture View
-Complete system running with all microservices and infrastructure components.
-
-**Running Services:**
-- ✅ Frontend (React) - `http://localhost:3000`
-- ✅ API Gateway - `http://localhost:8000`
-- ✅ Authentication Service - `http://localhost:8005`
-- ✅ Data Ingestion Service
-- ✅ Data Processing Service
-- ✅ Analytics Service
-- ✅ Notification Service
-- ✅ IoT Mock Service - `http://localhost:8090`
-- ✅ PostgreSQL Database - `localhost:5432`
-- ✅ InfluxDB - `http://localhost:8086`
-- ✅ Redis Cache - `localhost:6379`
-- ✅ MQTT Broker - `localhost:1883`
-- ✅ Grafana - `http://localhost:3001`
-- ✅ Nginx Reverse Proxy - `http://localhost:8080`
-
-## �🔧 Configuration
+## 🔧 Configuration
 
 ### Environment Variables
 
@@ -682,7 +590,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - ✅ **README Comprehensive Review**: Fully synchronized with current system implementation
 - ✅ **Technology Stack Update**: Corrected frontend dependencies (Tailwind CSS instead of Material-UI)
 - ✅ **Feature Status Audit**: Updated all feature lists to reflect actual implementation status
-- ✅ **Screenshots Section**: Added comprehensive visual documentation framework
 - ✅ **System Status Integration**: Added real-time system health monitoring
 - ✅ **Project Structure**: Updated to reflect all 7 microservices and complete architecture
 - ✅ **Roadmap Revision**: Marked completed features and updated development priorities
