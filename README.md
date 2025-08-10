@@ -72,12 +72,15 @@ curl -s http://localhost:8090/health  # Expected: {"status": "healthy"}
 This project follows a microservice architecture with the following components:
 
 ### Backend Services (Python)
+- **API Gateway**: Central entry point for all client requests (External: Port 8000)
+- **Authentication Service**: User management and authorization (External: Port 8005)
 - **Data Ingestion Service**: Collects IoT data from multiple sources (MQTT, HTTP APIs, WebSockets)
 - **Data Processing Service**: Real-time data processing, validation, and transformation
 - **Analytics Service**: Statistical analysis and forecasting models
-- **API Gateway**: Central entry point for all client requests
 - **Notification Service**: Alerts and notifications for anomalies
-- **IoT Mock Service**: Simulates IoT devices for testing and development
+- **IoT Mock Service**: Simulates IoT devices for testing and development (External: Port 8090)
+
+> **Note**: Internal services (data-ingestion, data-processing, analytics, notification) communicate via the API Gateway and are not directly exposed to external access for security purposes.
 
 ### Frontend (React)
 - **Dashboard**: Real-time data visualization and monitoring
@@ -156,10 +159,10 @@ energy-tracking/
 ├── services/                    # Backend Microservices
 │   ├── api-gateway/            # Central API gateway (Port 8000)
 │   ├── auth-service/           # Authentication & authorization (Port 8005)
-│   ├── data-ingestion/         # IoT data collection service (Port 8001)
-│   ├── data-processing/        # Real-time data processing (Port 8002)
-│   ├── analytics/              # Analytics and forecasting (Port 8003)
-│   ├── notification/           # Alerts and notifications (Port 8004)
+│   ├── data-ingestion/         # IoT data collection service (Internal)
+│   ├── data-processing/        # Real-time data processing (Internal)
+│   ├── analytics/              # Analytics and forecasting (Internal)
+│   ├── notification/           # Alerts and notifications (Internal)
 │   └── iot-mock/              # IoT device simulation (Port 8090)
 ├── frontend/                   # React dashboard application
 │   ├── public/                # Static assets
@@ -170,7 +173,9 @@ energy-tracking/
 │   │   │   ├── Analytics.tsx  # Analytics portal
 │   │   │   ├── Devices.tsx    # Device management
 │   │   │   ├── Login.tsx      # Authentication
-│   │   │   └── Settings.tsx   # User settings
+│   │   │   ├── Register.tsx   # User registration
+│   │   │   ├── Settings.tsx   # User settings
+│   │   │   └── NotFound.tsx   # 404 error page
 │   │   ├── contexts/         # React contexts
 │   │   ├── hooks/            # Custom React hooks
 │   │   ├── services/         # API service layers
@@ -186,7 +191,8 @@ energy-tracking/
 │   └── logging/              # Centralized logging setup
 ├── libs/                     # Shared libraries
 │   ├── common/               # Common utilities and database
-│   └── messaging/            # Message queue abstractions
+│   ├── messaging/            # Message queue abstractions
+│   └── monitoring/           # Metrics and tracing utilities
 ├── tests/                    # Comprehensive testing suite
 │   ├── unit/                 # Unit tests for services
 │   ├── integration/          # Integration tests
