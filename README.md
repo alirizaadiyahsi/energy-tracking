@@ -2,30 +2,7 @@
 
 A comprehensive IoT data processing platform built with Python microservices and React frontend. This system collects, processes, stores, and visual## 📸 Application Screenshots
 
-> **📝 Note:** Screenshots are being captu8. **Audit**: All user activities and data changes are logged for compliance
-
-## 📸 Application Screenshots
-
-> **� Screenshots Status:** Currently showing placeholder links. Image files need to be captured.
-> 
-> **✅ System Ready:** All services are running and accessible for screenshot capture.
-> 
-> **📋 Instructions:** See [screenshots/README.md](screenshots/README.md) for detailed capture guide.
-
-### 📷 Quick Screenshot Checklist:
-- [ ] Dashboard (`screenshots/dashboard.png`) - [🔗 Capture from localhost:3000/dashboard](http://localhost:3000/dashboard)
-- [ ] Analytics (`screenshots/analytics.png`) - [🔗 Capture from localhost:3000/analytics](http://localhost:3000/analytics)  
-- [ ] Devices (`screenshots/devices.png`) - [🔗 Capture from localhost:3000/devices](http://localhost:3000/devices)
-- [ ] Login (`screenshots/login.png`) - [🔗 Capture from localhost:3000/login](http://localhost:3000/login)
-- [ ] API Docs (`screenshots/api-docs.png`) - [🔗 Capture from localhost:8000/docs](http://localhost:8000/docs)
-- [ ] Grafana (`screenshots/grafana.png`) - [🔗 Capture from localhost:3001](http://localhost:3001)
-
-### 🏠 Main Dashboard
-The main dashboard provides real-time monitoring and visualization of energy data from connected IoT devices.
-
-**🔗 Live Preview:** [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
-
-**📷 Screenshot Status:** ⏳ *Pending - Image file `screenshots/dashboard.png` needed*om the running system. 
+> **📝 Note:** Screenshots are being captured from the running system. 
 > The system is currentl- ✅ Grafana - `http://localhost:3001`
 - ✅ Nginx Reverse Proxy - `http://localhost:8080`
 
@@ -290,8 +267,8 @@ energy-tracking/
 ### 🏠 Main Dashboard
 The main dashboard provides real-time monitoring and visualization of energy data from connected IoT devices.
 
-![Dashboard Screenshot](screenshots/dashboard.svg)
-**📷 Screenshot Status:** ⏳ *Placeholder shown - Replace with actual screenshot: `screenshots/dashboard.png`*
+![Dashboard Screenshot](screenshots/dashboard.png)
+*Real-time energy monitoring dashboard with interactive charts and device status*
 
 **Features shown:**
 - Real-time energy consumption metrics
@@ -303,8 +280,8 @@ The main dashboard provides real-time monitoring and visualization of energy dat
 ### 📊 Analytics Portal
 Comprehensive analytics view for historical data analysis and trend visualization.
 
-![Analytics Screenshot](screenshots/analytics.svg)
-**📷 Screenshot Status:** ⏳ *Placeholder shown - Replace with actual screenshot: `screenshots/analytics.png`*
+![Analytics Screenshot](screenshots/analytics.png)
+*Advanced analytics with forecasting and historical data visualization*
 
 **Features shown:**
 - Historical energy consumption trends
@@ -316,8 +293,8 @@ Comprehensive analytics view for historical data analysis and trend visualizatio
 ### 🔧 Device Management
 Centralized device management interface for monitoring and configuring IoT devices.
 
-![Devices Screenshot](screenshots/devices.svg)
-**📷 Screenshot Status:** ⏳ *Placeholder shown - Replace with actual screenshot: `screenshots/devices.png`*
+![Devices Screenshot](screenshots/devices.png)
+*Device management portal showing connected IoT devices and their status*
 
 **Features shown:**
 - List of all connected devices
@@ -329,8 +306,8 @@ Centralized device management interface for monitoring and configuring IoT devic
 ### 🔐 Authentication System
 Secure login system with role-based access control.
 
-![Login Screenshot](screenshots/login.svg)
-**📷 Screenshot Status:** ⏳ *Placeholder shown - Replace with actual screenshot: `screenshots/login.png`*
+![Login Screenshot](screenshots/login.png)
+*Secure authentication interface with modern design*
 
 **Features shown:**
 - Clean, modern login interface
@@ -342,8 +319,8 @@ Secure login system with role-based access control.
 ### 🛠️ API Documentation
 Interactive API documentation powered by FastAPI and Swagger UI.
 
-![API Documentation Screenshot](screenshots/api-docs.svg)
-**📷 Screenshot Status:** ⏳ *Placeholder shown - Replace with actual screenshot: `screenshots/api-docs.png`*
+![API Documentation Screenshot](screenshots/api-docs.png)
+*Comprehensive API documentation with interactive testing capabilities*
 
 **Features shown:**
 - Complete API endpoint documentation
@@ -355,8 +332,8 @@ Interactive API documentation powered by FastAPI and Swagger UI.
 ### 📈 Grafana Monitoring
 Advanced monitoring and alerting through Grafana dashboards.
 
-![Grafana Screenshot](screenshots/grafana.svg)
-**📷 Screenshot Status:** ⏳ *Placeholder shown - Replace with actual screenshot: `screenshots/grafana.png`*
+![Grafana Screenshot](screenshots/grafana.png)
+*Professional monitoring dashboards for system observability*
 
 **Features shown:**
 - Real-time system metrics
