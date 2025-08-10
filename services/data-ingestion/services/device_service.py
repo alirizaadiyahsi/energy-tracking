@@ -34,7 +34,7 @@ class DeviceService:
             current_time = datetime.utcnow()
             
             # Prepare device data
-            device_dict = device_data.dict()
+            device_dict = device_data.model_dump()
             device_dict.update({
                 "id": device_id,
                 "status": "offline",  # Default status
@@ -92,6 +92,10 @@ class DeviceService:
                 location=created_device.location,
                 description=created_device.description,
                 status=created_device.status,
+                base_power=None,  # Not in DB yet
+                base_voltage=None,  # Not in DB yet
+                firmware_version=None,  # Not in DB yet
+                model=None,  # Not in DB yet
                 metadata=created_device.metadata or {},
                 created_at=created_device.created_at,
                 updated_at=created_device.updated_at,
@@ -123,6 +127,10 @@ class DeviceService:
                 location=device.location,
                 description=device.description,
                 status=device.status,
+                base_power=None,  # Not in DB yet
+                base_voltage=None,  # Not in DB yet
+                firmware_version=None,  # Not in DB yet
+                model=None,  # Not in DB yet
                 metadata=device.metadata or {},
                 created_at=device.created_at,
                 updated_at=device.updated_at,
@@ -148,7 +156,7 @@ class DeviceService:
                 return None
             
             # Prepare update data (only non-None fields)
-            update_data = {k: v for k, v in device_data.dict().items() if v is not None}
+            update_data = {k: v for k, v in device_data.model_dump().items() if v is not None}
             update_data["updated_at"] = datetime.utcnow()
             
             if not update_data:
@@ -159,7 +167,7 @@ class DeviceService:
             set_clauses = []
             params = {"device_id": device_id}
             
-            # Map fields to database column names
+            # Map fields to database column names (only include existing columns)
             field_mapping = {
                 "type": "device_type",
                 "name": "name", 
@@ -171,9 +179,16 @@ class DeviceService:
             }
             
             for field, value in update_data.items():
-                db_field = field_mapping.get(field, field)
-                set_clauses.append(f"{db_field} = :{field}")
-                params[field] = value
+                # Only include fields that exist in database
+                if field in field_mapping:
+                    db_field = field_mapping[field]
+                    set_clauses.append(f"{db_field} = :{field}")
+                    
+                    # Handle JSON serialization for metadata
+                    if field == "metadata" and isinstance(value, dict):
+                        params[field] = json.dumps(value)
+                    else:
+                        params[field] = value
             
             query = text(f"""
                 UPDATE energy.devices 
@@ -196,6 +211,10 @@ class DeviceService:
                 location=updated_device.location,
                 description=updated_device.description,
                 status=updated_device.status,
+                base_power=None,  # Not in DB yet
+                base_voltage=None,  # Not in DB yet
+                firmware_version=None,  # Not in DB yet
+                model=None,  # Not in DB yet
                 metadata=updated_device.metadata or {},
                 created_at=updated_device.created_at,
                 updated_at=updated_device.updated_at,
@@ -278,6 +297,10 @@ class DeviceService:
                     location=device.location,
                     description=device.description,
                     status=device.status,
+                    base_power=None,  # Not in DB yet
+                    base_voltage=None,  # Not in DB yet
+                    firmware_version=None,  # Not in DB yet
+                    model=None,  # Not in DB yet
                     metadata=device.metadata or {},
                     created_at=device.created_at,
                     updated_at=device.updated_at,

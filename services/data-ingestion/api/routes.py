@@ -2,11 +2,18 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from schemas.device import DeviceCreate, DeviceUpdate, DeviceResponse
+from services.device_service import DeviceService
+from core.database import get_db
 from services.mqtt_client import mqtt_ingestion
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# Initialize device service
+device_service = DeviceService()
 
 
 def success_response(data: Any, message: str = "Success") -> Dict[str, Any]:
@@ -88,13 +95,72 @@ async def get_device_readings(
         return error_response(
             f"Failed to fetch readings for device {device_id}", [str(e)]
         )
-<<<<<<< Updated upstream
-=======
 
 
 # ============================================================================
 # DEVICE CRUD ENDPOINTS
 # ============================================================================
+
+@router.get("/devices/list", response_model=Dict[str, Any])
+async def list_devices_db(
+    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Number of items to return"),
+    device_type: Optional[str] = Query(None, description="Filter by device type"),
+    status: Optional[str] = Query(None, description="Filter by device status"),
+    db: AsyncSession = Depends(get_db)
+):
+    """List devices from database"""
+    try:
+        devices = await device_service.list_devices(
+            db=db,
+            skip=skip,
+            limit=limit,
+            device_type=device_type,
+            status=status
+        )
+        
+        return success_response(
+            data=[device.model_dump() for device in devices],
+            message=f"Retrieved {len(devices)} devices from database"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error listing devices: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list devices"
+        )
+
+
+@router.get("/devices/{device_id}/db", response_model=Dict[str, Any])
+async def get_device_db(
+    device_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get a specific device by ID from database"""
+    try:
+        device = await device_service.get_device(db=db, device_id=device_id)
+        
+        if not device:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Device {device_id} not found"
+            )
+        
+        return success_response(
+            data=device.model_dump(),
+            message=f"Device {device_id} retrieved successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting device {device_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get device"
+        )
+
 
 @router.post("/devices", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
 async def create_device(
@@ -112,7 +178,7 @@ async def create_device(
         )
         
         return success_response(
-            data=device.dict(),
+            data=device.model_dump(),
             message=f"Device '{device.name}' created successfully"
         )
         
@@ -154,7 +220,7 @@ async def update_device(
             )
         
         return success_response(
-            data=device.dict(),
+            data=device.model_dump(),
             message=f"Device '{device.name}' updated successfully"
         )
         
@@ -237,4 +303,3 @@ async def get_device_stats(db: AsyncSession = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get device statistics"
         )
->>>>>>> Stashed changes
