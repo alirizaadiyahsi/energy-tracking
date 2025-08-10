@@ -137,9 +137,8 @@ const Analytics: React.FC = () => {
         </div>
       </div>
 
-      {/* Secondary Analytics Section */}
-      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Forecasting Component */}
+      {/* Forecasting Section - Full Width */}
+      <div className="mt-8">
         <div className="card">
           <ConsumptionForecast
             params={chartParams}
@@ -150,21 +149,22 @@ const Analytics: React.FC = () => {
             confidenceInterval={true}
           />
         </div>
+      </div>
 
-        {/* Anomaly Detection Panel */}
+      {/* Anomaly Detection Section - Compact Height */}
+      <div className="mt-8">
         <div className="card">
           <AnomalyDetectionPanel
-            maxAlerts={10}
+            maxAlerts={5}
             showResolvedAlerts={false}
             autoRefresh={true}
           />
         </div>
       </div>
 
-      {/* Comparative Analysis and Device Performance - Placeholder */}
-      <div className="mt-8 grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* Comparative Analysis Component */}
-        <div className="xl:col-span-2 card">
+      {/* Comparative Analysis Section - Full Width */}
+      <div className="mt-8">
+        <div className="card">
           <ComparativeAnalysis
             params={chartParams}
             onParamsChange={setChartParams}
@@ -172,8 +172,10 @@ const Analytics: React.FC = () => {
             showControls={true}
           />
         </div>
+      </div>
 
-        {/* Device Performance Table */}
+      {/* Device Performance Section - Full Width */}
+      <div className="mt-8">
         <div className="card">
           <DevicePerformanceTable />
         </div>

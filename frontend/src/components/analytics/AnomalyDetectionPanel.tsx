@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { AlertTriangle, CheckCircle, Info, Bell, Clock, MapPin } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Info, Bell } from 'lucide-react';
 import { useAlerts } from '../../hooks/useAnalyticsData';
 import { formatAnalyticsValue } from '../../utils/analyticsTransformers';
 
@@ -89,47 +89,43 @@ const AnomalyCard: React.FC<AnomalyCardProps> = ({
   };
 
   return (
-    <div className={`p-4 rounded-lg border ${getSeverityColor()} ${status === 'resolved' ? 'opacity-75' : ''}`}>
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3">
+    <div className={`p-3 rounded-lg border ${getSeverityColor()} ${status === 'resolved' ? 'opacity-75' : ''}`}>
+      {/* Compact Header */}
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center space-x-2">
           {getSeverityIcon()}
-          <h4 className="font-medium text-gray-900">{title}</h4>
+          <div>
+            <h4 className="text-sm font-medium text-gray-900">{title}</h4>
+            <p className="text-xs text-gray-600">{description}</p>
+          </div>
         </div>
         <div className="flex items-center space-x-2">
           <span className={`text-xs px-2 py-1 rounded-full font-medium ${getStatusColor()}`}>
             {status}
           </span>
-          <span className="text-xs text-gray-500 flex items-center">
-            <Clock className="h-3 w-3 mr-1" />
+          <span className="text-xs text-gray-500">
             {formatTimestamp(timestamp)}
           </span>
         </div>
       </div>
 
-      {/* Description */}
-      <p className="text-sm text-gray-600 mb-3">{description}</p>
-
-      {/* Details */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 text-xs">
+      {/* Compact Details */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2 text-xs">
         {deviceName && (
           <div>
             <span className="text-gray-500">Device:</span>
-            <p className="font-medium">{deviceName}</p>
+            <p className="font-medium truncate">{deviceName}</p>
           </div>
         )}
         {location && (
           <div>
-            <span className="text-gray-500 flex items-center">
-              <MapPin className="h-3 w-3 mr-1" />
-              Location:
-            </span>
-            <p className="font-medium">{location}</p>
+            <span className="text-gray-500">Location:</span>
+            <p className="font-medium truncate">{location}</p>
           </div>
         )}
         {value !== undefined && (
           <div>
-            <span className="text-gray-500">Current Value:</span>
+            <span className="text-gray-500">Current:</span>
             <p className="font-medium text-red-600">
               {formatAnalyticsValue(value, 'power')}
             </p>
@@ -143,13 +139,13 @@ const AnomalyCard: React.FC<AnomalyCardProps> = ({
         )}
       </div>
 
-      {/* Actions */}
+      {/* Compact Actions */}
       {status === 'active' && (
         <div className="flex space-x-2">
           {onAcknowledge && (
             <button
               onClick={() => onAcknowledge(id)}
-              className="px-3 py-1 text-xs bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
+              className="px-2 py-1 text-xs bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
             >
               Acknowledge
             </button>
@@ -157,7 +153,7 @@ const AnomalyCard: React.FC<AnomalyCardProps> = ({
           {onResolve && (
             <button
               onClick={() => onResolve(id)}
-              className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+              className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
             >
               Resolve
             </button>
