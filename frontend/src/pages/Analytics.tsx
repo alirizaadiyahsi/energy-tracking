@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import TimeIntervalSelector, { TimeIntervalOption, timeIntervals } from '../components/TimeIntervalSelector';
 import AnalyticsSummaryCards from '../components/analytics/AnalyticsSummaryCards';
 import ConsumptionTrendsChart from '../components/analytics/ConsumptionTrendsChart';
+import PowerUsageChart from '../components/analytics/PowerUsageChart';
 import { useAnalyticsSummary } from '../hooks/useAnalyticsData';
 import { ChartParams } from '../types/analytics';
 
@@ -100,21 +101,22 @@ const Analytics: React.FC = () => {
           />
         </div>
 
-        {/* Power Usage Analytics Chart - Placeholder */}
+        {/* Power Usage Analytics Chart */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-secondary-900">Power Usage Analytics</h3>
             <div className="flex space-x-2">
-              <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+              <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
               <span className="text-sm text-secondary-600">Live monitoring</span>
             </div>
           </div>
-          <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
-            <div className="text-center">
-              <div className="h-8 w-8 bg-gray-400 rounded animate-pulse mx-auto mb-2"></div>
-              <p className="text-sm text-secondary-500">Power usage chart will appear here</p>
-            </div>
-          </div>
+          <PowerUsageChart
+            params={chartParams}
+            onParamsChange={setChartParams}
+            height={320}
+            showControls={false}
+            showPeakDetection={true}
+          />
         </div>
       </div>
 

@@ -354,3 +354,35 @@ export const generateChartColors = (count: number): string[] => {
 
   return colors;
 };
+
+/**
+ * Detect peak events in time series data
+ */
+export const calculatePeakDetection = (
+  data: ChartDataPoint[],
+  threshold: number
+): Array<{ timestamp: string; value: number }> => {
+  if (!data || data.length < 3) return [];
+
+  const peaks: Array<{ timestamp: string; value: number }> = [];
+  
+  for (let i = 1; i < data.length - 1; i++) {
+    const current = data[i];
+    const previous = data[i - 1];
+    const next = data[i + 1];
+    
+    // A peak is detected when:
+    // 1. Current value is higher than both neighbors
+    // 2. Current value exceeds the threshold
+    if (current.value > previous.value && 
+        current.value > next.value && 
+        current.value >= threshold) {
+      peaks.push({
+        timestamp: current.timestamp,
+        value: current.value
+      });
+    }
+  }
+  
+  return peaks;
+};
