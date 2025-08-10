@@ -4,6 +4,7 @@ import AnalyticsSummaryCards from '../components/analytics/AnalyticsSummaryCards
 import ConsumptionTrendsChart from '../components/analytics/ConsumptionTrendsChart';
 import PowerUsageChart from '../components/analytics/PowerUsageChart';
 import EfficiencyAnalysis from '../components/analytics/EfficiencyAnalysis';
+import AnomalyDetectionPanel from '../components/analytics/AnomalyDetectionPanel';
 import { useAnalyticsSummary } from '../hooks/useAnalyticsData';
 import { ChartParams } from '../types/analytics';
 
@@ -145,15 +146,13 @@ const Analytics: React.FC = () => {
           </div>
         </div>
 
-        {/* Anomaly Detection Panel - Placeholder */}
+        {/* Anomaly Detection Panel */}
         <div className="card">
-          <h3 className="text-lg font-medium text-secondary-900 mb-4">Anomaly Detection & Alerts</h3>
-          <div className="h-48 bg-gray-50 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
-            <div className="text-center">
-              <div className="h-8 w-8 bg-gray-400 rounded animate-pulse mx-auto mb-2"></div>
-              <p className="text-sm text-secondary-500">Anomaly detection panel will appear here</p>
-            </div>
-          </div>
+          <AnomalyDetectionPanel
+            maxAlerts={10}
+            showResolvedAlerts={false}
+            autoRefresh={true}
+          />
         </div>
       </div>
 
