@@ -76,9 +76,20 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-node-
         
+    - name: Debug directory structure
+      run: |
+        echo "Current directory: $(pwd)"
+        echo "Contents of root directory:"
+        ls -la
+        echo "Contents of frontend directory:"
+        ls -la frontend/ || echo "frontend directory not found"
+        
     - name: Install dependencies
       working-directory: frontend
       run: |
+        echo "Current working directory: $(pwd)"
+        echo "Contents of current directory:"
+        ls -la
         echo "Node version: $(node --version)"
         echo "NPM version: $(npm --version)"
         npm install --frozen-lockfile

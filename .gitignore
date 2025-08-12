@@ -165,7 +165,13 @@ celerybeat.pid
 # Data files
 data/
 *.csv
+# Ignore JSON data files but allow essential package files
 *.json
+!package.json
+!package-lock.json
+!tsconfig*.json
+!.eslintrc*.json
+!.vscode/*.json
 *.xml
 !example_data/
 
@@ -184,17 +190,6 @@ k8s/secrets/
 # Monitoring
 prometheus_data/
 grafana_data/
-
-# macOS
-.DS_Store
-
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# Linux
-*~
 
 # Backup files
 *.bak
